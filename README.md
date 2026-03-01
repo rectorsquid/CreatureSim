@@ -1,3 +1,5 @@
+This is a Unity C# Project
+
 I’m building a creature‑evolution simulator. The world will contain creatures, food sources, and eventually other environmental elements that influence survival. Each creature will be controlled by a small neural network that processes sensory inputs and outputs movement decisions. Over time, creatures will reproduce, and their offspring will inherit slightly mutated versions of the parent’s neural network. Through natural pressures like aging, energy consumption, food scarcity, and predation, the more efficient and better‑adapted creatures will survive longer, while less capable ones will die out.
 
 This approach follows the classic pattern used in many neuro‑evolution systems: a population of simple agents, each with a neural controller, competing for limited resources. As generations pass, small random mutations accumulate, and the population gradually discovers strategies that improve survival — whether that’s better movement patterns, more efficient foraging, or improved avoidance of danger. The system doesn’t require any explicit training; evolution itself selects for useful behaviors.

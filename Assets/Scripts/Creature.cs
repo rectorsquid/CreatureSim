@@ -19,6 +19,7 @@ public class Creature
 	public float hunger = 0f;
 
 	public List<int> neighbors = new List<int>( 64 );
+	public List<int> nearbyFood = new List<int>( 16 );
 
     public Vector2 Position
     {

@@ -129,6 +129,10 @@ public class Simulation
 			checkCollisions( i );
 		}
 
+		Parallel.For( 0, creatureCount, i => {
+			checkFood( i );
+		} );
+
 		//Parallel.For( 0, creatureCount, i => { 
         //for( int i = 0; i < creatures.Length; i++ )
         //{
@@ -176,6 +180,21 @@ public class Simulation
 		return i;
 	}
 
+	private void checkFood( int i ) {
+        var creature = creatures[i];
+		
+		int gx = (int)((creature.Position.x+halfWidth) / cellSize);
+        int gy = (int)((creature.Position.y+halfHeight) / cellSize);
+
+		foodGrid.GetNeighbors( gx, gy, collisionRadius, creature.nearbyFood );
+		for( int index = 0; index < creature.nearbyFood.Count; ++index ) {
+			var c2 = creature.nearbyFood[index];
+			var food = foods[c2];
+
+			ResolveFood( ref creature, ref food, c2, creatureRadius );
+		}
+	}
+
 	private void checkCollisions( int i ) {
         var creature = creatures[i];
 		
@@ -193,6 +212,31 @@ public class Simulation
 			ResolvePair( ref creature, ref other, creatureRadius * 1.2f, restitution: 0.15f, friction: 0.2f, slop: 0.0005f );
 		}
 	}
+
+	void ResolveFood(
+		ref Creature a,
+		ref Food b,
+		int foodIndex,
+		float radius )
+	{
+		Vector2 d = b.Position - a.Position;
+		float distSq = d.sqrMagnitude;
+		float r = radius + radius;
+
+		if( distSq >= r * r )
+			return;
+
+		float dist = Mathf.Sqrt( distSq );
+
+		if( dist > radius )	{ return; }
+
+		a.hunger = Mathf.Max( 0f, a.hunger - maxHunger * 0.1f );
+
+
+
+		initializeFood( foodIndex );
+	}
+
 
 	static void ResolvePair(
 		ref Creature a,
@@ -322,8 +366,8 @@ public class Simulation
 
         if (newgx != f.gridX || newgy != f.gridY)
         {
-            creatureGrid[f.gridX, f.gridY].Remove(i);
-            creatureGrid[newgx, newgy].Add(i);
+            foodGrid[f.gridX, f.gridY].Remove(i);
+            foodGrid[newgx, newgy].Add(i);
 
             f.gridX = newgx;
             f.gridY = newgy;
@@ -344,15 +388,15 @@ public class Simulation
 
 	private void initializeFood( int i ) {
         Vector3 pos = new Vector3(
-			UnityEngine.Random.Range( -halfWidth + creatureRadius, halfWidth - creatureRadius ),
-            UnityEngine.Random.Range( -halfHeight + creatureRadius, halfHeight - creatureRadius ),
+			ThreadSafeRandom.Range( -halfWidth + creatureRadius, halfWidth - creatureRadius ),
+            ThreadSafeRandom.Range( -halfHeight + creatureRadius, halfHeight - creatureRadius ),
             0f
         );
 		foods[i].Position = pos;
 		UpdateFoodGridMembership( i );
 	}
 
-    private void AddCreatureToGrid(int i)
+    private void AddCreatureToGrid( int i )
     {
         var c = creatures[i];
         int gx = (int)((c.Position.x+halfWidth) / cellSize);
@@ -362,7 +406,7 @@ public class Simulation
         creatureGrid[gx, gy].Add(i);
     }
 
-    private void AddFoodToGrid(int i)
+    private void AddFoodToGrid( int i )
     {
         var c = foods[i];
         int gx = (int)((c.Position.x+halfWidth) / cellSize);

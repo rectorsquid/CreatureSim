@@ -299,7 +299,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 021184718e0cafc479ba4c4e16fd1bf3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SimulationManager
-  creatureCount: 10000
+  creatureCount: 5000
   foodCount: 1000
   creatureSize: 0.025
   minSpeed: 0.005

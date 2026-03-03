@@ -104,6 +104,8 @@ public class Simulation
 
     public void Update( float dt )
     {
+		dt = Mathf.Min(Time.deltaTime, 0.1f);
+
 		//for( int i = 0; i < creatures.Length; i++ )
         //{
 		//	creatures[i].tempVelocity = creatures[i].Velocity;
@@ -129,9 +131,18 @@ public class Simulation
 			checkCollisions( i );
 		}
 
-		Parallel.For( 0, creatureCount, i => {
-			checkFood( i );
-		} );
+		//Parallel.For( 0, creatureCount, i => {
+		//	if( creatures[i].isAlive ) {
+		//		checkFood( i );
+		//	}
+		//} );
+
+		for( int i = 0; i < creatures.Length; i++ ) {
+			if( creatures[i].isAlive ) {
+				checkFood( i );
+				checkSteering( i );
+			}
+		}
 
 		//Parallel.For( 0, creatureCount, i => { 
         //for( int i = 0; i < creatures.Length; i++ )
@@ -187,13 +198,49 @@ public class Simulation
         int gy = (int)((creature.Position.y+halfHeight) / cellSize);
 
 		foodGrid.GetNeighbors( gx, gy, collisionRadius, creature.nearbyFood );
+
 		for( int index = 0; index < creature.nearbyFood.Count; ++index ) {
 			var c2 = creature.nearbyFood[index];
 			var food = foods[c2];
 
-			ResolveFood( ref creature, ref food, c2, creatureRadius );
+			if( eatFood( ref creature, ref food, c2, creatureRadius ) ) {
+				return;
+			}
 		}
 	}
+
+	private void checkSteering( int i ) {
+        var creature = creatures[i];
+		
+		int gx = (int)((creature.Position.x+halfWidth) / cellSize);
+        int gy = (int)((creature.Position.y+halfHeight) / cellSize);
+
+		foodGrid.GetNeighbors( gx, gy, sensesRadius, creature.nearbyFood );
+
+		int bestFood = -1;
+		float bestFoodDistanceSquared = 0f;
+
+		for( int index = 0; index < creature.nearbyFood.Count; ++index ) {
+			var c2 = creature.nearbyFood[index];
+			var food = foods[c2];
+
+			// Deal with nearby food if nothing has been eaten.
+			Vector2 d = food.Position - creature.Position;
+			float distSq = d.sqrMagnitude;
+
+			if( bestFood == -1 || distSq < bestFoodDistanceSquared ) {
+				bestFoodDistanceSquared = distSq;
+				bestFood = c2;
+			}
+		}
+
+		if( bestFood >= 0 ) {
+			Vector2 dir = foods[bestFood].Position - creature.Position;
+			float angle = Mathf.Atan2( dir.y, dir.x );
+			creature.runNetwork( angle );
+		}
+	}
+
 
 	private void checkCollisions( int i ) {
         var creature = creatures[i];
@@ -213,7 +260,7 @@ public class Simulation
 		}
 	}
 
-	void ResolveFood(
+	bool eatFood(
 		ref Creature a,
 		ref Food b,
 		int foodIndex,
@@ -224,17 +271,17 @@ public class Simulation
 		float r = radius + radius;
 
 		if( distSq >= r * r )
-			return;
+			return false;
 
 		float dist = Mathf.Sqrt( distSq );
 
-		if( dist > radius )	{ return; }
+		if( dist > radius )	{ return false; }
 
 		a.hunger = Mathf.Max( 0f, a.hunger - maxHunger * 0.1f );
 
-
-
 		initializeFood( foodIndex );
+
+		return true;
 	}
 
 
@@ -307,7 +354,14 @@ public class Simulation
     {
         var c = creatures[i];
 		c.hunger += dt;
-		c.age += dt;
+		//c.age += dt;
+
+		if( c.hunger >= maxHunger ) {
+			killCreature( i );
+		}
+
+		return;
+
 		if( c.age >= maxAge || c.hunger >= maxHunger ) {
 			killCreature( i );
 
@@ -384,6 +438,9 @@ public class Simulation
 		creatures[i].Velocity = UnityEngine.Random.insideUnitCircle.normalized * UnityEngine.Random.Range( minSpeed, maxSpeed );
 		creatures[i].age = UnityEngine.Random.Range( 0f, maxAge / 2f );
 		creatures[i].hunger = UnityEngine.Random.Range( 0f, maxHunger / 5f );
+		
+		creatures[i].w = UnityEngine.Random.Range( -1f, 1f );
+		creatures[i].b = UnityEngine.Random.Range( -1f,1f );
 	}
 
 	private void initializeFood( int i ) {

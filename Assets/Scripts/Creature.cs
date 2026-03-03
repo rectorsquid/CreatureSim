@@ -4,6 +4,11 @@ using UnityEngine;
 
 public class Creature
 {
+	public float w;
+	public float b;
+	
+	private float turnAngle;
+
 	public bool isAlive = true;
 
     public float x, y;
@@ -44,4 +49,37 @@ public class Creature
         get => new Vector2(tempvx, tempvy);
         set { tempvx = value.x; tempvy = value.y; }
     }*/
+
+	public void runNetwork( float foodAngleInRadians ) {
+		float myAngle = Mathf.Atan2( vy, vx );
+		float relativeAngle = foodAngleInRadians - myAngle;
+
+		if (relativeAngle > Mathf.PI) relativeAngle -= 2f * Mathf.PI;
+		if (relativeAngle < -Mathf.PI) relativeAngle += 2f * Mathf.PI;
+
+		float input = (relativeAngle + Mathf.PI) / (2f * Mathf.PI);
+
+		float linear = w * input + b; 
+		float sigmoided = 1f / (1f + Mathf.Exp(-linear));
+
+		Velocity = computeNewVelocity( sigmoided );
+	}
+
+	private Vector2 computeNewVelocity( float turnValue ) {
+		Vector2 vel = Velocity;
+		float signedTurn = ( turnValue - 0.5f ) * 10f;
+
+		float rad = signedTurn * Mathf.Deg2Rad;
+		float cos = Mathf.Cos(rad);
+		float sin = Mathf.Sin(rad);
+
+		Vector2 newVel = new Vector2(
+			vel.x * cos - vel.y * sin,
+			vel.x * sin + vel.y * cos
+		);
+
+		newVel = newVel.normalized * vel.magnitude;
+
+		return newVel;
+	}
 }

@@ -238,6 +238,7 @@ public class Simulation
 			Vector2 dir = foods[bestFood].Position - creature.Position;
 			float angle = Mathf.Atan2( dir.y, dir.x );
 			creature.runNetwork( angle );
+		} else {
 		}
 	}
 

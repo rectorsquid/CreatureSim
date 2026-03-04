@@ -299,7 +299,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 021184718e0cafc479ba4c4e16fd1bf3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SimulationManager
-  creatureCount: 10000
+  creatureCount: 4000
   foodCount: 500
   creatureSize: 0.025
   minSpeed: 0.005
@@ -310,7 +310,7 @@ MonoBehaviour:
   creaturePrefab: {fileID: 8046963546943378738, guid: a205e587e9081d847b06f3fb79f0e332, type: 3}
   rectangleTemplate: {fileID: 1173185356140413360, guid: 2dcc00bb2b49b7a42a540497cf4b4931, type: 3}
   foodTemplate: {fileID: 740089508972067840, guid: 32418c0af1c0f684aa2e6ccf434ddc37, type: 3}
-  useFixedSimulationTime: 0
+  useFixedSimulationTime: 1
   maxAge: 120
   maxHunger: 60
   creatureBodyColor: {r: 0.8256319, g: 0.6701317, b: 0.9811321, a: 1}
@@ -612,7 +612,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 716745545}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
   m_Name: 

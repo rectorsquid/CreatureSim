@@ -27,6 +27,7 @@ public class SimulationManager: MonoBehaviour
 	public Shapes.Rectangle rectangleTemplate;
 	public Shapes.Disc foodTemplate;
 	public Boolean useFixedSimulationTime = true;
+	public bool showZeroCreatureBoxes = false;
 	public float maxAge = 120f;
 	public float maxHunger = 60f;
 	public UnityEngine.Color creatureBodyColor = UnityEngine.Color.white;
@@ -81,7 +82,7 @@ public class SimulationManager: MonoBehaviour
     void Update()
     {
 		float dt = Time.deltaTime;
-        float simDt = useFixedSimulationTime ? 0.02f : dt;
+        float simDt = useFixedSimulationTime ? 0.0333333f : dt;
 
         sim.Update( simDt );
 
@@ -117,6 +118,8 @@ public class SimulationManager: MonoBehaviour
 		cellBox.Width = cellBoxPositionSize.size.x;
 		cellBox.Height = cellBoxPositionSize.size.y;
 
+		cellBox.enabled = showZeroCreatureBoxes;
+
 		/*Camera.main.transform.position =
 			new Vector3( sim.Creatures[0].Position.x,
 						 sim.Creatures[0].Position.y,
@@ -128,10 +131,14 @@ public class SimulationManager: MonoBehaviour
 		collisionBox.Width = collisionBoxPositionSize.size.x;
 		collisionBox.Height = collisionBoxPositionSize.size.y;
 
+		collisionBox.enabled = showZeroCreatureBoxes;
+
 		var sensoryBoxPositionSize = GetCellRegionRect( sim.Creatures[0].Position, cellSize, sensingRadiusBoxRadius, sim.creatureGrid );
 		sensoryBox.transform.position = new Vector3( sensoryBoxPositionSize.position.x, sensoryBoxPositionSize.position.y, -5f );
 		sensoryBox.Width = sensoryBoxPositionSize.size.x;
 		sensoryBox.Height = sensoryBoxPositionSize.size.y;
+
+		sensoryBox.enabled = showZeroCreatureBoxes;
     }
 
 	public (Vector2 position, Vector2 size) GetCellRegionRect( Vector2 worldPos, float cellSize, int radius, List<int>[,] grid ) {

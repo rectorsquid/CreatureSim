@@ -67,7 +67,7 @@ public class Creature
 
 	private Vector2 computeNewVelocity( float turnValue ) {
 		Vector2 vel = Velocity;
-		float signedTurn = ( turnValue - 0.5f ) * 10f;
+		float signedTurn = ( turnValue - 0.5f ) * 200f;
 
 		float rad = signedTurn * Mathf.Deg2Rad;
 		float cos = Mathf.Cos(rad);

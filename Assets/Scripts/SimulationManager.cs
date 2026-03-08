@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using UnityEngine;
 using UnityEngine.AdaptivePerformance.Provider;
+using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 
 public class SimulationManager: MonoBehaviour
@@ -25,6 +26,7 @@ public class SimulationManager: MonoBehaviour
 	[Header("References")]
     public GameObject creaturePrefab;
 	public Shapes.Rectangle rectangleTemplate;
+	public Shapes.Line lineTemplate;
 	public Shapes.Disc foodTemplate;
 	public Boolean useFixedSimulationTime = true;
 	public bool showZeroCreatureBoxes = false;
@@ -39,10 +41,14 @@ public class SimulationManager: MonoBehaviour
 	private float halfHeight = 0f;
 	private List<GameObject> visualCreatures = new List<GameObject>();
 	private List<Disc> visualFoods = new List<Disc>();	
+	private float foodSize = 1f;
+
+	private int debugItemIndex = 0;
 	
 	Shapes.Rectangle cellBox;
 	Shapes.Rectangle collisionBox;
 	Shapes.Rectangle sensoryBox;
+	Shapes.Line nearestFoodLine;
 
     void Start()
     {
@@ -58,6 +64,10 @@ public class SimulationManager: MonoBehaviour
 		collisionBox = Instantiate( rectangleTemplate );
 		sensoryBox = Instantiate( rectangleTemplate );
 		sensoryBox.Color = UnityEngine.Color.green;
+		nearestFoodLine = Instantiate( lineTemplate );
+		nearestFoodLine.Color = UnityEngine.Color.yellow;
+
+		foodSize = creatureSize * 0.75f;
 
         sim = new Simulation( worldWidth, worldHeight, cellSize, creatureCount, foodCount, creatureSize, maxAge, maxHunger, minSpeed, maxSpeed, collisionDetectionBoxRadius, sensingRadiusBoxRadius );
 
@@ -74,17 +84,45 @@ public class SimulationManager: MonoBehaviour
 
         for( int i = 0; i < foodCount; i++ ) {
             Disc d = Instantiate( foodTemplate );
-            d.transform.localScale = Vector3.one * ( creatureSize / 2f );
+            d.transform.localScale = Vector3.one * foodSize;
             visualFoods.Add(d);
         }
     }
+
+	private void findNextDebugCreature() {
+		int index = debugItemIndex + 1;
+		while( index != debugItemIndex ) {
+			if( sim.Creatures[index].isAlive ) {
+				break;
+			}
+			++index;
+			if( index >= creatureCount ) {
+				index = 0;
+			}
+		}
+		debugItemIndex = index;
+	}
+
+	void HandleKeys()
+    {
+		if (Keyboard.current.tabKey.wasPressedThisFrame)
+		{
+			findNextDebugCreature();
+		}
+	}
 
     void Update()
     {
 		float dt = Time.deltaTime;
         float simDt = useFixedSimulationTime ? 0.0333333f : dt;
 
+		HandleKeys();
+
         sim.Update( simDt );
+
+		if( !sim.Creatures[debugItemIndex].isAlive ) {
+			findNextDebugCreature();
+		}
 
         // Now read sim.Creatures and "draw" them. 
 		for (int i = 0; i < creatureCount; i++)
@@ -112,34 +150,56 @@ public class SimulationManager: MonoBehaviour
 			t.position = new Vector3( sim.Foods[i].Position.x, sim.Foods[i].Position.y, 1f );
 		}
 
+		showDebug();
+
+    }
+
+	private void showDebug() {
+		if( !showZeroCreatureBoxes || debugItemIndex < 0 ) {
+			cellBox.enabled = false;
+			collisionBox.enabled = false;
+			sensoryBox.enabled = false;
+			nearestFoodLine.enabled = false;
+			return;
+		}
+
 		// Position the cell and collision sdetection boxes for debugging.
-		var cellBoxPositionSize = GetCellRegionRect( sim.Creatures[0].Position, cellSize, 0, sim.creatureGrid );
+		var cellBoxPositionSize = GetCellRegionRect( sim.Creatures[debugItemIndex].Position, cellSize, 0, sim.creatureGrid );
 		cellBox.transform.position = new Vector3( cellBoxPositionSize.position.x, cellBoxPositionSize.position.y, -5f );
 		cellBox.Width = cellBoxPositionSize.size.x;
 		cellBox.Height = cellBoxPositionSize.size.y;
 
-		cellBox.enabled = showZeroCreatureBoxes;
-
-		/*Camera.main.transform.position =
-			new Vector3( sim.Creatures[0].Position.x,
-						 sim.Creatures[0].Position.y,
-						 Camera.main.transform.position.z );*/
-
+		cellBox.enabled = true;
 		
-		var collisionBoxPositionSize = GetCellRegionRect( sim.Creatures[0].Position, cellSize, collisionDetectionBoxRadius, sim.creatureGrid );
+		var collisionBoxPositionSize = GetCellRegionRect( sim.Creatures[debugItemIndex].Position, cellSize, collisionDetectionBoxRadius, sim.creatureGrid );
 		collisionBox.transform.position = new Vector3( collisionBoxPositionSize.position.x, collisionBoxPositionSize.position.y, -5f );
 		collisionBox.Width = collisionBoxPositionSize.size.x;
 		collisionBox.Height = collisionBoxPositionSize.size.y;
 
-		collisionBox.enabled = showZeroCreatureBoxes;
+		collisionBox.enabled = true;
 
-		var sensoryBoxPositionSize = GetCellRegionRect( sim.Creatures[0].Position, cellSize, sensingRadiusBoxRadius, sim.creatureGrid );
+		var sensoryBoxPositionSize = GetCellRegionRect( sim.Creatures[debugItemIndex].Position, cellSize, sensingRadiusBoxRadius, sim.creatureGrid );
 		sensoryBox.transform.position = new Vector3( sensoryBoxPositionSize.position.x, sensoryBoxPositionSize.position.y, -5f );
 		sensoryBox.Width = sensoryBoxPositionSize.size.x;
 		sensoryBox.Height = sensoryBoxPositionSize.size.y;
 
-		sensoryBox.enabled = showZeroCreatureBoxes;
-    }
+		sensoryBox.enabled = true;
+
+		nearestFoodLine.Start = new Vector3( sim.Creatures[debugItemIndex].Position.x, sim.Creatures[debugItemIndex].Position.y, -4.5f );
+		nearestFoodLine.End = new Vector3( sim.Creatures[debugItemIndex].nearestFood.x, sim.Creatures[debugItemIndex].nearestFood.y, -4.5f );
+		nearestFoodLine.enabled = sim.Creatures[debugItemIndex].isFoodNearby;
+
+		for (int i = 0; i < foodCount; i++) {
+            Transform t = visualFoods[i].transform;
+			t.localScale = Vector3.one * foodSize;
+		}
+
+		for( int index = 0; index < sim.Creatures[debugItemIndex].nearbyFood.Count; ++index ) {
+            Transform t = visualFoods[sim.Creatures[debugItemIndex].nearbyFood[index]].transform;
+			t.localScale = Vector3.one * ( foodSize * 5f );
+		}
+
+	}
 
 	public (Vector2 position, Vector2 size) GetCellRegionRect( Vector2 worldPos, float cellSize, int radius, List<int>[,] grid ) {
 		/*

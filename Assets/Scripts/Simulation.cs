@@ -47,6 +47,8 @@ public class Simulation
 
 	private float[] preSpeed;
 
+	Vector2 dummyVector;
+
     public Simulation( float width, float height, float cellSize, int creatureCount, int foodCount, float creatureRadius, 
 		               float maxAge, float maxHunger, float minSpeed, float maxSpeed, int collisionRadius, int sensesRadius )
     {
@@ -97,8 +99,6 @@ public class Simulation
         {
             foods[i] = new Food();
 			initializeFood( i );
-
-            AddFoodToGrid( i );
         }
 	}
 
@@ -140,9 +140,18 @@ public class Simulation
 		for( int i = 0; i < creatures.Length; i++ ) {
 			if( creatures[i].isAlive ) {
 				checkFood( i );
-				checkSteering( i );
 			}
 		}
+
+		// Only self contained code that does not modify the overall simulation data, such as
+		// the grids or creature and food arrays, can be parallel. This code is running the neural network
+		// but does not modify anything outside of the individual creatures.
+		Parallel.For( 0, creatureCount, i => {
+			if( creatures[i].isAlive ) {
+				checkSteering( i );
+			}
+		} );
+
 
 		//Parallel.For( 0, creatureCount, i => { 
         //for( int i = 0; i < creatures.Length; i++ )
@@ -197,13 +206,14 @@ public class Simulation
 		int gx = creature.gridX;
         int gy = creature.gridY;
 
+		// Look nearby for food to eat.
 		foodGrid.GetNeighbors( gx, gy, collisionRadius, creature.nearbyFood );
 
 		for( int index = 0; index < creature.nearbyFood.Count; ++index ) {
-			var c2 = creature.nearbyFood[index];
-			var food = foods[c2];
+			var foodIndex = creature.nearbyFood[index];
+			var food = foods[foodIndex];
 
-			if( eatFood( ref creature, ref food, c2, creatureRadius ) ) {
+			if( eatFood( ref creature, ref food, foodIndex, creatureRadius ) ) {
 				return;
 			}
 		}
@@ -215,6 +225,7 @@ public class Simulation
 		int gx = creature.gridX;
         int gy = creature.gridY;
 
+		// Look far for nearby food.
 		foodGrid.GetNeighbors( gx, gy, sensesRadius, creature.nearbyFood );
 
 		int bestFood = -1;
@@ -235,8 +246,12 @@ public class Simulation
 		}
 
 		if( bestFood >= 0 ) {
+			creature.nearestFood = foods[bestFood].Position;
+			creature.isFoodNearby = true;
 			processCreatureInput( ref creature, true, foods[bestFood].Position );
 		} else {
+			creature.isFoodNearby = false;
+			processCreatureInput( ref creature, false, dummyVector );
 		}
 	}
 
@@ -250,7 +265,7 @@ public class Simulation
 		if (relativeFoodAngle > Mathf.PI) relativeFoodAngle -= 2f * Mathf.PI;
 		if (relativeFoodAngle < -Mathf.PI) relativeFoodAngle += 2f * Mathf.PI;
 
-		creature.runNetwork( relativeFoodAngle );
+		creature.runNetwork( seesFood, relativeFoodAngle );
 	}
 
 	private void checkCollisions( int i ) {
@@ -259,6 +274,7 @@ public class Simulation
 		int gx = creature.gridX;
         int gy = creature.gridY;
 
+		// Look close for collisions
 		creatureGrid.GetNeighbors( gx, gy, collisionRadius, creature.neighbors );
 		for( int index = 0; index < creature.neighbors.Count; ++index ) {
 			var c2 = creature.neighbors[index];
@@ -271,21 +287,13 @@ public class Simulation
 		}
 	}
 
-	bool eatFood(
-		ref Creature a,
-		ref Food b,
-		int foodIndex,
-		float radius )
-	{
+	bool eatFood( ref Creature a, ref Food b, int foodIndex, float radius ) {
 		Vector2 d = b.Position - a.Position;
 		float distSq = d.sqrMagnitude;
 		float r = radius + radius;
 
-		if( distSq >= r * r )
-			return false;
-
+		if( distSq >= r * r ) { return false; }
 		float dist = Mathf.Sqrt( distSq );
-
 		if( dist > radius )	{ return false; }
 
 		a.hunger = Mathf.Max( 0f, a.hunger - maxHunger * 0.1f );
@@ -422,7 +430,7 @@ public class Simulation
         }
     }
 
-	 private void UpdateFoodGridMembership( int i )
+	private void UpdateFoodGridMembership( int i )
     {
         var f = foods[i];
 
@@ -454,11 +462,7 @@ public class Simulation
 	}
 
 	private void initializeFood( int i ) {
-        Vector3 pos = new Vector3(
-			ThreadSafeRandom.Range( -halfWidth + creatureRadius, halfWidth - creatureRadius ),
-            ThreadSafeRandom.Range( -halfHeight + creatureRadius, halfHeight - creatureRadius ),
-            0f
-        );
+        Vector3 pos = new Vector3( ThreadSafeRandom.Range( -halfWidth + creatureRadius, halfWidth - creatureRadius ), ThreadSafeRandom.Range( -halfHeight + creatureRadius, halfHeight - creatureRadius ), 0f );
 		foods[i].Position = pos;
 		UpdateFoodGridMembership( i );
 	}
@@ -473,15 +477,15 @@ public class Simulation
         creatureGrid[gx, gy].Add(i);
     }
 
-    private void AddFoodToGrid( int i )
+    /*private void AddFoodToGrid( int i )
     {
         var c = foods[i];
         int gx = (int)((c.Position.x+halfWidth) / cellSize);
         int gy = (int)((c.Position.y+halfHeight) / cellSize);
         c.gridX = gx;
         c.gridY = gy;
-        foodGrid[gx, gy].Add(i);
-    }
+        foodGrid[gx, gy].Add( i );
+    }*/
 
     public Creature[] Creatures => creatures;
     public Food[] Foods => foods;

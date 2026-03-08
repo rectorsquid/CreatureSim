@@ -11,22 +11,15 @@ public static class GridExtensions
 
         for (int y = gridY - range; y <= gridY + range; y++)
         {
-            if (y < 0 || y >= height)
-            {
-                continue;
-            }
+            if (y < 0 || y >= height) { continue; }
 
             for (int x = gridX - range; x <= gridX + range; x++)
             {
-                if (x < 0 || x >= width)
-                {
-                    continue;
-                }
+                if (x < 0 || x >= width) { continue; }
 
                 List<int> cell = grid[x, y];
 
-                for (int i = 0; i < cell.Count; i++)
-                {
+                for (int i = 0; i < cell.Count; i++) {
                     result.Add(cell[i]);
                 }
             }

@@ -92,6 +92,9 @@ public class Creature
 	public List<int> neighbors = new List<int>( 64 );
 	public List<int> nearbyFood = new List<int>( 16 );
 
+	public Vector2 nearestFood;
+	public bool isFoodNearby = false;
+
 	public void initializeBrain()
     {
         brain = new NeuralNet();
@@ -138,13 +141,13 @@ public class Creature
         set { vx = value.x; vy = value.y; }
     }
 
-	public void runNetwork( float relativeFoodAngle ) {
+	public void runNetwork( bool isFoodNearby, float relativeFoodAngle ) {
 		if (relativeFoodAngle > Mathf.PI) relativeFoodAngle -= 2f * Mathf.PI;
 		if (relativeFoodAngle < -Mathf.PI) relativeFoodAngle += 2f * Mathf.PI;
 		
-		input[0] = relativeFoodAngle / Mathf.PI;
-		input[1] = 0f;
-		input[2] = 0f;
+		input[0] = isFoodNearby ? ( relativeFoodAngle / Mathf.PI ) : 0.0f;
+		input[1] = isFoodNearby ? 1.0f : 0.0f;
+		input[2] = 1.0f; // A non-zero bias to keep the network from getting all zero values.
 		input[3] = 0f;
 
 		//inputs[1] = normalizedDistanceToFood;
@@ -161,7 +164,7 @@ public class Creature
 	private Vector2 computeNewVelocity(float turnValue, float speedValue)
 	{
 		const float maxSpeed = 0.5f;
-		const float maxTurnAngle = 200.0f;
+		const float maxTurnAngle = 90.0f;
 
 		// Map -1..+1 → 0..1 (temporary, as you said)
 		speedValue = (speedValue * 0.5f) + 0.5f;

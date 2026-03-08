@@ -9,6 +9,10 @@ using UnityEngine.UIElements;
 
 public class SimulationManager: MonoBehaviour
 {
+	[Header("Environment Settings")]
+	public float Worldsize = 30f;
+	public float cameraSize = 5f;
+
 	[Header("Creature Environment Settings")]
 	public int creatureCount = 1000;
 	public int foodCount = 1000;
@@ -53,8 +57,9 @@ public class SimulationManager: MonoBehaviour
     void Start()
     {
 		Camera cam = Camera.main;
-		worldHeight = cam.orthographicSize * 2;
-		worldWidth = worldHeight * cam.aspect;
+		cam.orthographicSize = cameraSize;
+		worldWidth = Worldsize;
+		worldHeight = Worldsize;
 
 		halfWidth = worldWidth / 2f;
 		halfHeight = worldHeight / 2f;
@@ -151,7 +156,6 @@ public class SimulationManager: MonoBehaviour
 		}
 
 		showDebug();
-
     }
 
 	private void showDebug() {

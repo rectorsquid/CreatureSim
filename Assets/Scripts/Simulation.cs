@@ -265,7 +265,9 @@ public class Simulation
 		if (relativeFoodAngle > Mathf.PI) relativeFoodAngle -= 2f * Mathf.PI;
 		if (relativeFoodAngle < -Mathf.PI) relativeFoodAngle += 2f * Mathf.PI;
 
-		creature.runNetwork( seesFood, relativeFoodAngle );
+		float distanceToFood = relativePosition.magnitude;
+
+		creature.runNetwork( seesFood, relativeFoodAngle, distanceToFood );
 	}
 
 	private void checkCollisions( int i ) {

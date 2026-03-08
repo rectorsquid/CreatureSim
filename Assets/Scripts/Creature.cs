@@ -141,14 +141,17 @@ public class Creature
         set { vx = value.x; vy = value.y; }
     }
 
-	public void runNetwork( bool isFoodNearby, float relativeFoodAngle ) {
+	public void runNetwork( bool isFoodNearby, float relativeFoodAngle, float foodDistance ) {
+		const float maxDistance = 0.5f;
 		if (relativeFoodAngle > Mathf.PI) relativeFoodAngle -= 2f * Mathf.PI;
 		if (relativeFoodAngle < -Mathf.PI) relativeFoodAngle += 2f * Mathf.PI;
+
+		var distanceValue = Math.Min( maxDistance, foodDistance ) / maxDistance;
 		
 		input[0] = isFoodNearby ? ( relativeFoodAngle / Mathf.PI ) : 0.0f;
 		input[1] = isFoodNearby ? 1.0f : 0.0f;
 		input[2] = 1.0f; // A non-zero bias to keep the network from getting all zero values.
-		input[3] = 0f;
+		input[3] = distanceValue;
 
 		//inputs[1] = normalizedDistanceToFood;
 		//inputs[2] = energyLevel;

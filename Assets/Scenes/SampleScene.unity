@@ -299,8 +299,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 021184718e0cafc479ba4c4e16fd1bf3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SimulationManager
-  creatureCount: 5000
-  foodCount: 100
+  Worldsize: 30
+  cameraSize: 5
+  creatureCount: 8000
+  foodCount: 700
   creatureSize: 0.025
   minSpeed: 0.005
   maxSpeed: 0.5
@@ -614,7 +616,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 716745545}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
   m_Name: 

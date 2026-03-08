@@ -152,7 +152,7 @@ public class Simulation
 
 
 		//Parallel.For( 0, creatureCount, i => { 
-		for( int i = 0; i < creatures.Length; i++ ) {
+		/*for( int i = 0; i < creatures.Length; i++ ) {
 			if( creatures[i].isAlive ) {
 				Vector2 v = creatures[i].Velocity;
 				float m = v.magnitude;
@@ -161,7 +161,7 @@ public class Simulation
 					creatures[i].Velocity = v * ( preSpeed[i] / m );
 				}
 			}
-		}// );
+		}*/// );
 
 		for( int i = 0; i < creatures.Length; i++ )
         {
@@ -173,8 +173,8 @@ public class Simulation
 	private void killCreature( int i ) {
 		creatures[i].isAlive = false;
 		freeCreatureSlots.Push( i );
-		int gx = (int)((creatures[i].Position.x+halfWidth) / cellSize);
-        int gy = (int)((creatures[i].Position.y+halfHeight) / cellSize);
+		int gx = creatures[i].gridX;
+        int gy = creatures[i].gridY;
 		creatureGrid[gx, gy].Remove(i);
 	}
 
@@ -194,8 +194,8 @@ public class Simulation
 	private void checkFood( int i ) {
         var creature = creatures[i];
 		
-		int gx = (int)((creature.Position.x+halfWidth) / cellSize);
-        int gy = (int)((creature.Position.y+halfHeight) / cellSize);
+		int gx = creature.gridX;
+        int gy = creature.gridY;
 
 		foodGrid.GetNeighbors( gx, gy, collisionRadius, creature.nearbyFood );
 
@@ -212,8 +212,8 @@ public class Simulation
 	private void checkSteering( int i ) {
         var creature = creatures[i];
 		
-		int gx = (int)((creature.Position.x+halfWidth) / cellSize);
-        int gy = (int)((creature.Position.y+halfHeight) / cellSize);
+		int gx = creature.gridX;
+        int gy = creature.gridY;
 
 		foodGrid.GetNeighbors( gx, gy, sensesRadius, creature.nearbyFood );
 
@@ -235,19 +235,29 @@ public class Simulation
 		}
 
 		if( bestFood >= 0 ) {
-			Vector2 dir = foods[bestFood].Position - creature.Position;
-			float angle = Mathf.Atan2( dir.y, dir.x );
-			creature.runNetwork( angle );
+			processCreatureInput( ref creature, true, foods[bestFood].Position );
 		} else {
 		}
 	}
 
+	private void processCreatureInput( ref Creature creature, bool seesFood, Vector2 foodPosition ) {
+		// Convert food angle to a realtive angle.
+		Vector2 relativePosition = foodPosition - creature.Position;
+		float angleToFood = Mathf.Atan2( relativePosition.y, relativePosition.x );
+		float myDirectionAngle = Mathf.Atan2( creature.vy, creature.vx );
+		float relativeFoodAngle = angleToFood - myDirectionAngle;
+
+		if (relativeFoodAngle > Mathf.PI) relativeFoodAngle -= 2f * Mathf.PI;
+		if (relativeFoodAngle < -Mathf.PI) relativeFoodAngle += 2f * Mathf.PI;
+
+		creature.runNetwork( relativeFoodAngle );
+	}
 
 	private void checkCollisions( int i ) {
         var creature = creatures[i];
 		
-		int gx = (int)((creature.Position.x+halfWidth) / cellSize);
-        int gy = (int)((creature.Position.y+halfHeight) / cellSize);
+		int gx = creature.gridX;
+        int gy = creature.gridY;
 
 		creatureGrid.GetNeighbors( gx, gy, collisionRadius, creature.neighbors );
 		for( int index = 0; index < creature.neighbors.Count; ++index ) {
@@ -440,8 +450,7 @@ public class Simulation
 		creatures[i].age = UnityEngine.Random.Range( 0f, maxAge / 2f );
 		creatures[i].hunger = UnityEngine.Random.Range( 0f, maxHunger / 5f );
 		
-		creatures[i].w = UnityEngine.Random.Range( -1f, 1f );
-		creatures[i].b = UnityEngine.Random.Range( -1f,1f );
+		creatures[i].initializeBrain();
 	}
 
 	private void initializeFood( int i ) {

@@ -1,14 +1,80 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Windows;
+
+public static class BrainConfig
+{
+	public const int N_INPUTS = 4;
+	public const int N_HIDDEN = 8;
+	public const int N_OUTPUTS = 2;
+}
+
+public struct NeuralNet
+{
+    // Input → Hidden
+    public float[] w1;   // size: N_HIDDEN * N_INPUTS
+    public float[] b1;   // size: N_HIDDEN
+
+    // Hidden → Output
+    public float[] w2;   // size: N_OUTPUTS * N_HIDDEN
+    public float[] b2;   // size: N_OUTPUTS
+
+    // Activations (no allocation after init)
+    public float[] hidden;  // size: N_HIDDEN
+    public float[] output;  // size: N_OUTPUTS
+
+	public static float Tanh(float x)
+	{
+		// Numerically stable tanh for floats
+		float e1 = Mathf.Exp(x);
+		float e2 = Mathf.Exp(-x);
+		return (e1 - e2) / (e1 + e2);
+	}
+
+	public static float FastTanh(float x)
+	{
+		// Clamp to avoid overflow
+		if (x < -3f) return -1f;
+		if (x > 3f) return 1f;
+
+		float x2 = x * x;
+		return x * (27f + x2) / (27f + 9f * x2);
+	}
+
+	public void Evaluate( float[] inputs )
+	{
+		// Hidden layer
+		for (int h = 0; h < BrainConfig.N_HIDDEN; h++)
+		{
+			float sum = b1[h];
+			int wIndex = h * BrainConfig.N_INPUTS;
+
+			for (int i = 0; i < BrainConfig.N_INPUTS; i++)
+				sum += w1[wIndex + i] * inputs[i];
+
+			hidden[h] = FastTanh(sum);
+		}
+
+		// Output layer
+		for (int o = 0; o < BrainConfig.N_OUTPUTS; o++)
+		{
+			float sum = b2[o];
+			int wIndex = o * BrainConfig.N_HIDDEN;
+
+			for (int h = 0; h < BrainConfig.N_HIDDEN; h++)
+				sum += w2[wIndex + h] * hidden[h];
+
+			output[o] = FastTanh(sum);
+		}
+	}
+}
 
 public class Creature
 {
-	public float w;
-	public float b;
+    public float[] input;
+	public NeuralNet brain;
 	
-	private float turnAngle;
-
 	public bool isAlive = true;
 
     public float x, y;
@@ -26,6 +92,40 @@ public class Creature
 	public List<int> neighbors = new List<int>( 64 );
 	public List<int> nearbyFood = new List<int>( 16 );
 
+	public void initializeBrain()
+    {
+        brain = new NeuralNet();
+
+        brain.w1 = new float[BrainConfig.N_HIDDEN * BrainConfig.N_INPUTS];
+        brain.b1 = new float[BrainConfig.N_HIDDEN];
+
+        brain.w2 = new float[BrainConfig.N_OUTPUTS * BrainConfig.N_HIDDEN];
+        brain.b2 = new float[BrainConfig.N_OUTPUTS];
+
+        brain.hidden = new float[BrainConfig.N_HIDDEN];
+        brain.output = new float[BrainConfig.N_OUTPUTS];
+
+        input = new float[BrainConfig.N_INPUTS];
+
+        // Optional: randomize weights here
+        RandomizeBrain();
+    }
+
+	private void RandomizeBrain()
+    {
+        for (int i = 0; i < brain.w1.Length; i++)
+            brain.w1[i] = UnityEngine.Random.Range(-1f, 1f);
+
+        for (int i = 0; i < brain.b1.Length; i++)
+            brain.b1[i] = UnityEngine.Random.Range(-1f, 1f);
+
+        for (int i = 0; i < brain.w2.Length; i++)
+            brain.w2[i] = UnityEngine.Random.Range(-1f, 1f);
+
+        for (int i = 0; i < brain.b2.Length; i++)
+            brain.b2[i] = UnityEngine.Random.Range(-1f, 1f);
+    }
+
     public Vector2 Position
     {
         get => new Vector2(x, y);
@@ -38,48 +138,46 @@ public class Creature
         set { vx = value.x; vy = value.y; }
     }
 
-    /*public Vector2 tempPosition
-    {
-        get => new Vector2(tempx, tempy);
-        set { tempx = value.x; tempy = value.y; }
-    }
+	public void runNetwork( float relativeFoodAngle ) {
+		if (relativeFoodAngle > Mathf.PI) relativeFoodAngle -= 2f * Mathf.PI;
+		if (relativeFoodAngle < -Mathf.PI) relativeFoodAngle += 2f * Mathf.PI;
+		
+		input[0] = relativeFoodAngle / Mathf.PI;
+		input[1] = 0f;
+		input[2] = 0f;
+		input[3] = 0f;
 
-    public Vector2 tempVelocity
-    {
-        get => new Vector2(tempvx, tempvy);
-        set { tempvx = value.x; tempvy = value.y; }
-    }*/
+		//inputs[1] = normalizedDistanceToFood;
+		//inputs[2] = energyLevel;
+		//inputs[3] = currentTurnAngle;
+		//inputs[4] = previousOutputTurn;
+		//inputs[5] = previousOutputSpeed;
 
-	public void runNetwork( float foodAngleInRadians ) {
-		float myAngle = Mathf.Atan2( vy, vx );
-		float relativeAngle = foodAngleInRadians - myAngle;
+		brain.Evaluate( input );
 
-		if (relativeAngle > Mathf.PI) relativeAngle -= 2f * Mathf.PI;
-		if (relativeAngle < -Mathf.PI) relativeAngle += 2f * Mathf.PI;
-
-		float input = (relativeAngle + Mathf.PI) / (2f * Mathf.PI);
-
-		float linear = w * input + b; 
-		float sigmoided = 1f / (1f + Mathf.Exp(-linear));
-
-		Velocity = computeNewVelocity( sigmoided );
+		Velocity = computeNewVelocity( brain.output[0], brain.output[1] );
 	}
 
-	private Vector2 computeNewVelocity( float turnValue ) {
-		Vector2 vel = Velocity;
-		float signedTurn = ( turnValue - 0.5f ) * 200f;
+	private Vector2 computeNewVelocity(float turnValue, float speedValue)
+	{
+		const float maxSpeed = 0.5f;
+		const float maxTurnAngle = 200.0f;
 
-		float rad = signedTurn * Mathf.Deg2Rad;
-		float cos = Mathf.Cos(rad);
-		float sin = Mathf.Sin(rad);
+		// Map -1..+1 → 0..1 (temporary, as you said)
+		speedValue = (speedValue * 0.5f) + 0.5f;
 
-		Vector2 newVel = new Vector2(
-			vel.x * cos - vel.y * sin,
-			vel.x * sin + vel.y * cos
-		);
+		float speed = Mathf.Abs(speedValue) * maxSpeed;
 
-		newVel = newVel.normalized * vel.magnitude;
+		// Current facing angle from velocity
+		float currentAngle = Mathf.Atan2(Velocity.y, Velocity.x);
 
-		return newVel;
+		// Turn is a delta, not an absolute angle
+		float turnAngle = turnValue * maxTurnAngle * Mathf.Deg2Rad;
+		float newAngle = currentAngle + turnAngle;
+
+		float x = Mathf.Cos(newAngle) * speed;
+		float y = Mathf.Sin(newAngle) * speed;
+
+		return new Vector2(x, y);
 	}
 }

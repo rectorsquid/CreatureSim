@@ -282,7 +282,7 @@ public class Simulation
 		float dist = Mathf.Sqrt( distSq );
 		if( dist > radius )	{ return false; }
 
-		a.hunger = Mathf.Max( 0f, a.hunger - maxHunger * 0.1f );
+		a.hunger = Mathf.Max( 0f, a.hunger - maxHunger * 0.25f );
 
 		initializeFood( foodIndex );
 

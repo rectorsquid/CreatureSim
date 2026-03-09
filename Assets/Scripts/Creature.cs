@@ -76,6 +76,7 @@ public class Creature
 	public NeuralNet brain;
 	
 	public bool isAlive = true;
+	public bool isChild = false;
 
     public float x, y;
     public float vx, vy;
@@ -95,7 +96,7 @@ public class Creature
 	public Vector2 nearestFood;
 	public bool isFoodNearby = false;
 
-	public void initializeBrain()
+	public void initializeBrain( Creature fromParent )
     {
         brain = new NeuralNet();
 
@@ -110,9 +111,42 @@ public class Creature
 
         input = new float[BrainConfig.N_INPUTS];
 
-        // Optional: randomize weights here
-        RandomizeBrain();
+		if( fromParent == null ) {
+			RandomizeBrain();
+		} else {
+			mutateBrain( fromParent );
+		}
     }
+	
+private void mutateBrain( Creature parent )
+{
+    const float mutationStrength = 0.1f;   // adjust between 0.05 and 0.2
+    const float clampRange = 2f;
+
+    for (int i = 0; i < brain.w1.Length; i++)
+    {
+        float v = parent.brain.w1[i] + UnityEngine.Random.Range(-mutationStrength, mutationStrength);
+        brain.w1[i] = Mathf.Clamp(v, -clampRange, clampRange);
+    }
+
+    for (int i = 0; i < brain.b1.Length; i++)
+    {
+        float v = parent.brain.b1[i] + UnityEngine.Random.Range(-mutationStrength, mutationStrength);
+        brain.b1[i] = Mathf.Clamp(v, -clampRange, clampRange);
+    }
+
+    for (int i = 0; i < brain.w2.Length; i++)
+    {
+        float v = parent.brain.w2[i] + UnityEngine.Random.Range(-mutationStrength, mutationStrength);
+        brain.w2[i] = Mathf.Clamp(v, -clampRange, clampRange);
+    }
+
+    for (int i = 0; i < brain.b2.Length; i++)
+    {
+        float v = parent.brain.b2[i] + UnityEngine.Random.Range( -mutationStrength, mutationStrength );
+        brain.b2[i] = Mathf.Clamp(v, -clampRange, clampRange);
+    }
+}
 
 	private void RandomizeBrain()
     {

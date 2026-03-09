@@ -299,25 +299,29 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 021184718e0cafc479ba4c4e16fd1bf3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SimulationManager
-  Worldsize: 30
+  worldSize: 30
   cameraSize: 5
   creatureCount: 8000
-  foodCount: 700
+  maxCreatureCount: 10000
+  foodCount: 1800
   creatureSize: 0.025
+  secondsPerSpawn: 100
+  maxAge: 300
+  maxHunger: 30
   minSpeed: 0.005
   maxSpeed: 0.5
-  cellSize: 0.1
+  creatureBodyColor: {r: 0.69262, g: 0.37735844, b: 1, a: 1}
+  childBodyColor: {r: 1, g: 0.9711288, b: 0, a: 1}
+  cellSize: 0.11
   collisionDetectionBoxRadius: 1
-  sensingRadiusBoxRadius: 5
+  sensingRadiusBoxRadius: 6
   creaturePrefab: {fileID: 8046963546943378738, guid: a205e587e9081d847b06f3fb79f0e332, type: 3}
   rectangleTemplate: {fileID: 1173185356140413360, guid: 2dcc00bb2b49b7a42a540497cf4b4931, type: 3}
   lineTemplate: {fileID: 6142783597735713833, guid: 9e1e72e9aa0f555409d1170bea0299a8, type: 3}
   foodTemplate: {fileID: 740089508972067840, guid: 32418c0af1c0f684aa2e6ccf434ddc37, type: 3}
   useFixedSimulationTime: 1
   showZeroCreatureBoxes: 1
-  maxAge: 120
-  maxHunger: 60
-  creatureBodyColor: {r: 0.8256319, g: 0.6701317, b: 0.9811321, a: 1}
+  debugOutputDisplay: {fileID: 716745549}
 --- !u!4 &488698748
 Transform:
   m_ObjectHideFlags: 0
@@ -656,8 +660,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 10
-  m_fontSizeBase: 10
+  m_fontSize: 8
+  m_fontSizeBase: 8
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -695,7 +699,7 @@ MonoBehaviour:
   m_VertexBufferAutoSizeReduction: 0
   m_useMaxVisibleDescender: 1
   m_pageToDisplay: 1
-  m_margin: {x: 0, y: 0, z: 0, w: 0}
+  m_margin: {x: 0, y: 0, z: 0, w: -222.08945}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
   m_hasFontAssetChanged: 0
@@ -722,6 +726,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FPSDisplay
   text: {fileID: 716745547}
+  extraOutput: 
 --- !u!1 &1150716561
 GameObject:
   m_ObjectHideFlags: 0
@@ -1055,9 +1060,9 @@ RectTransform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
+  - {fileID: 488698748}
   - {fileID: 519420032}
   - {fileID: 619394802}
   - {fileID: 1208189537}
-  - {fileID: 488698748}
   - {fileID: 1675656686}
   - {fileID: 1150716564}

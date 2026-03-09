@@ -1,4 +1,4 @@
-using Shapes;
+﻿using Shapes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -30,7 +30,7 @@ public class Simulation
     private readonly float halfHeight;
     private readonly float cellSize;
     private readonly float creatureRadius;
-	private readonly int creatureCount;
+	private readonly int maxCreatureCount;
 	private readonly int foodCount;
 	private readonly int collisionRadius;
 	private readonly int sensesRadius;
@@ -38,19 +38,18 @@ public class Simulation
 	private readonly float maxHunger;
 	private readonly float minSpeed;
 	private readonly float maxSpeed;
+	private readonly float secondsPerSpawn;
 
     public readonly List<int>[,] creatureGrid;
     public readonly List<int>[,] foodGrid;
     private readonly Creature[] creatures;
     private readonly Food[] foods;
-	private readonly Stack<int> freeCreatureSlots = new Stack<int>();
 
-	private float[] preSpeed;
+	public int creatureCount;
+	private Vector2 dummyVector;
 
-	Vector2 dummyVector;
-
-    public Simulation( float width, float height, float cellSize, int creatureCount, int foodCount, float creatureRadius, 
-		               float maxAge, float maxHunger, float minSpeed, float maxSpeed, int collisionRadius, int sensesRadius )
+    public Simulation( float width, float height, float cellSize, int creatureCount, int maxCreatureCount, int foodCount, float creatureRadius, 
+		               float maxAge, float maxHunger, float minSpeed, float maxSpeed, int collisionRadius, int sensesRadius, float secondsPerSpawn )
     {
         this.width = width;
         this.height = height;
@@ -58,6 +57,7 @@ public class Simulation
         this.halfHeight = height / 2f;
         this.cellSize = cellSize;
 		this.creatureCount = creatureCount;
+		this.maxCreatureCount = maxCreatureCount;
 		this.creatureRadius = creatureRadius;
 		this.foodCount = foodCount;
 		this.maxAge = maxAge;
@@ -66,9 +66,8 @@ public class Simulation
 		this.maxSpeed = maxSpeed;
 		this.collisionRadius = collisionRadius;
 		this.sensesRadius = sensesRadius;
+		this.secondsPerSpawn = secondsPerSpawn;
 		
-		preSpeed = new float[creatureCount];
-
         int gridX = Mathf.CeilToInt(width / cellSize);
         int gridY = Mathf.CeilToInt(height / cellSize);
 
@@ -86,12 +85,15 @@ public class Simulation
 			}
 		}
 
-        creatures = new Creature[creatureCount];
-        for ( int i = 0; i < creatureCount; i++ )
+        creatures = new Creature[maxCreatureCount];
+        for ( int i = 0; i < maxCreatureCount; i++ )
         {
             creatures[i] = new Creature();
-			initializeCreature( i );
-            AddCreatureToGrid( i );
+			if( i < creatureCount ) {
+				// Only initialize the living creatures. The rest are placeholders for children.
+				initializeCreature( i, null );
+				AddCreatureToGrid( i );
+			}
         }
 
         foods = new Food[foodCount];
@@ -106,38 +108,23 @@ public class Simulation
     {
 		dt = Mathf.Min(Time.deltaTime, 0.1f);
 
-		//for( int i = 0; i < creatures.Length; i++ )
-        //{
-		//	creatures[i].tempVelocity = creatures[i].Velocity;
-		//}
+		// DO NOT MULTITHREAD SOME LOOPS BECAUSE OF GRID AND OTHER ARRAY UPDATES.
 
-		// DO NOT MULTITHRAD BECAUSE OF GRID UPDATES.
-        for( int i = 0; i < creatures.Length; i++ )
+        for( int i = 0; i < creatureCount; i++ )
         {
 			if( creatures[i].isAlive ) {
 				MoveCreature( i, dt );
 				UpdateCreatureGridMembership( i );
-				preSpeed[i] = creatures[i].Velocity.magnitude;
 			}
         }
 
-		//Parallel.For( 0, creatureCount, i => { 
-		//	checkCollisions(i); 
-		//} );
-
-        for( int i = 0; i < creatures.Length; i++ )
+        for( int i = 0; i < creatureCount; i++ )
         {
 			if( !creatures[i].isAlive ) { continue; }
 			checkCollisions( i );
 		}
 
-		//Parallel.For( 0, creatureCount, i => {
-		//	if( creatures[i].isAlive ) {
-		//		checkFood( i );
-		//	}
-		//} );
-
-		for( int i = 0; i < creatures.Length; i++ ) {
+		for( int i = 0; i < creatureCount; i++ ) {
 			if( creatures[i].isAlive ) {
 				checkFood( i );
 			}
@@ -152,52 +139,49 @@ public class Simulation
 			}
 		} );
 
-
-		//Parallel.For( 0, creatureCount, i => { 
-        //for( int i = 0; i < creatures.Length; i++ )
-        //{
-		//	creatures[i].Velocity = creatures[i].tempVelocity;
-		//} //);
-
-
-		//Parallel.For( 0, creatureCount, i => { 
-		/*for( int i = 0; i < creatures.Length; i++ ) {
-			if( creatures[i].isAlive ) {
-				Vector2 v = creatures[i].Velocity;
-				float m = v.magnitude;
-
-				if( m > 1e-6f ) {
-					creatures[i].Velocity = v * ( preSpeed[i] / m );
-				}
-			}
-		}*/// );
-
-		for( int i = 0; i < creatures.Length; i++ )
+		// Save the count so the loop can add creatures without processing them in the same loop.
+		int count = creatureCount;
+		for( int i = 0; i < count; i++ )
         {
 			if( !creatures[i].isAlive ) { continue; }
-			AgeCreature( i, dt );
+			processCreatureLifecycle( i, dt );
 		}
     }
 
 	private void killCreature( int i ) {
-		creatures[i].isAlive = false;
-		freeCreatureSlots.Push( i );
+		// Remove the current creature from the grid.
 		int gx = creatures[i].gridX;
         int gy = creatures[i].gridY;
 		creatureGrid[gx, gy].Remove(i);
+
+		// Swap with the last alive creature in the array and shrink the alive creature count.
+		var currentCreature = creatures[i];
+		currentCreature.isAlive = false;
+		if( creatureCount > 1 ) {
+			var lastCreature = creatures[creatureCount-1];
+			creatures[i] = lastCreature;
+			creatures[creatureCount-1] = currentCreature;
+		}
+
+		--creatureCount;
 	}
 
-	private int spawnCreature( Vector2 position ) {
-		if( freeCreatureSlots.Count == 0 ) { return -1; }
-		int i = freeCreatureSlots.Pop();
-		initializeCreature( i );
+	private void spawnNewCreature( Vector2 position, Creature parent ) {
+		if( creatureCount >= maxCreatureCount ) {
+			return;
+		}
+		int index = creatureCount++;
 
-		// Override the default random position.
-		creatures[i].Position = position;
+		initializeCreature( index, parent );
 
-		creatures[i].isAlive = true;
-        AddCreatureToGrid( i );
-		return i;
+		Vector2 dir = UnityEngine.Random.insideUnitCircle.normalized;
+		Vector2 childPosition = position + dir * creatureRadius;
+		childPosition.x = Mathf.Clamp( childPosition.x, 0f, width - 1f );
+		childPosition.y = Mathf.Clamp( childPosition.y, 0f, height - 1f );
+		creatures[index].Position = position + dir * creatureRadius;
+		creatures[index].isAlive = true;
+		creatures[index].isChild = true;
+        AddCreatureToGrid( index );
 	}
 
 	private void checkFood( int i ) {
@@ -371,29 +355,38 @@ public class Simulation
 		}
 	}
 
-	private void AgeCreature( int i, float dt )
+	private bool RandomEvent( float deltaTime, float secondsPerEvent )
+	{
+		// Rate λ = events per second
+		float lambda = 1f / secondsPerEvent;
+
+		// Probability of at least one event in this frame
+		float p = 1f - Mathf.Exp(-lambda * deltaTime);
+
+		return UnityEngine.Random.value < p;
+	}
+
+
+	private void processCreatureLifecycle( int i, float dt )
     {
         var c = creatures[i];
 		c.hunger += dt;
-		//c.age += dt;
+		c.age += dt;
 
 		if( c.hunger >= maxHunger ) {
 			killCreature( i );
+			return;
 		}
 
-		return;
-
-		if( c.age >= maxAge || c.hunger >= maxHunger ) {
+		if( c.age >= maxAge ) {
 			killCreature( i );
+			return;
+		}
 
-			// For now, just spawn a random one somewhere.
-			Vector3 pos = new Vector3(
-				UnityEngine.Random.Range( -halfWidth + creatureRadius, halfWidth - creatureRadius ),
-				UnityEngine.Random.Range( -halfHeight + creatureRadius, halfHeight - creatureRadius ),
-				0f
-			);
+		if( creatureCount < maxCreatureCount && RandomEvent( dt, secondsPerSpawn ) ) {
+			// Create a child!
 
-			spawnCreature( position: pos );
+			spawnNewCreature( c.Position, c );
 		}
 	}
 
@@ -449,7 +442,7 @@ public class Simulation
         }
     }
 
-	private void initializeCreature( int i ) {
+	private void initializeCreature( int i, Creature fromParent ) {
         Vector3 pos = new Vector3(
 			UnityEngine.Random.Range( -halfWidth + creatureRadius, halfWidth - creatureRadius ),
             UnityEngine.Random.Range( -halfHeight + creatureRadius, halfHeight - creatureRadius ),
@@ -460,7 +453,7 @@ public class Simulation
 		creatures[i].age = UnityEngine.Random.Range( 0f, maxAge / 2f );
 		creatures[i].hunger = UnityEngine.Random.Range( 0f, maxHunger / 5f );
 		
-		creatures[i].initializeBrain();
+		creatures[i].initializeBrain( fromParent );
 	}
 
 	private void initializeFood( int i ) {

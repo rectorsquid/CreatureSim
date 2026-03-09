@@ -5,9 +5,9 @@ using UnityEngine.InputSystem;
 public class CameraController2D : MonoBehaviour
 {
     [Header("Zoom")]
-    public float zoomSpeed = 5f;
+    public float zoomSpeed = 8f;
     public float minZoom = 0.5f;
-    public float maxZoom = 25f;
+    public float maxZoom = 30f;
 
     [Header("Pan")]
     public float panSpeed = 1f;

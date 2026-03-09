@@ -9,18 +9,22 @@ using UnityEngine.UIElements;
 
 public class SimulationManager: MonoBehaviour
 {
-	[Header("Environment Settings")]
-	public float Worldsize = 30f;
+	[Header("World Settings")]
+	public float worldSize = 30f;
 	public float cameraSize = 5f;
-
-	[Header("Creature Environment Settings")]
-	public int creatureCount = 1000;
+	public int creatureCount = 4000;
+	public int maxCreatureCount = 5000;
 	public int foodCount = 1000;
-	public float creatureSize = 1.5f;
 
-	// These two are just for starting values until the simulation is running...
+	[Header("Creature Settings")]
+	public float creatureSize = 1.5f;
+	public float secondsPerSpawn = 30f;
+	public float maxAge = 120f;
+	public float maxHunger = 60f;
 	public float minSpeed = 0.01f;
     public float maxSpeed = 1f;
+	public UnityEngine.Color creatureBodyColor = UnityEngine.Color.white;
+	public UnityEngine.Color childBodyColor = UnityEngine.Color.red;
 
 	[Header("Simulation Settings")]
 	public float cellSize = 0.1f;
@@ -34,9 +38,7 @@ public class SimulationManager: MonoBehaviour
 	public Shapes.Disc foodTemplate;
 	public Boolean useFixedSimulationTime = true;
 	public bool showZeroCreatureBoxes = false;
-	public float maxAge = 120f;
-	public float maxHunger = 60f;
-	public UnityEngine.Color creatureBodyColor = UnityEngine.Color.white;
+	public FPSDisplay debugOutputDisplay;
 
     private Simulation sim;
 	private float worldWidth = 0f;
@@ -58,8 +60,8 @@ public class SimulationManager: MonoBehaviour
     {
 		Camera cam = Camera.main;
 		cam.orthographicSize = cameraSize;
-		worldWidth = Worldsize;
-		worldHeight = Worldsize;
+		worldWidth = worldSize;
+		worldHeight = worldSize;
 
 		halfWidth = worldWidth / 2f;
 		halfHeight = worldHeight / 2f;
@@ -74,10 +76,11 @@ public class SimulationManager: MonoBehaviour
 
 		foodSize = creatureSize * 0.75f;
 
-        sim = new Simulation( worldWidth, worldHeight, cellSize, creatureCount, foodCount, creatureSize, maxAge, maxHunger, minSpeed, maxSpeed, collisionDetectionBoxRadius, sensingRadiusBoxRadius );
+        sim = new Simulation( worldWidth, worldHeight, cellSize, creatureCount, maxCreatureCount, foodCount, creatureSize, 
+			                  maxAge, maxHunger, minSpeed, maxSpeed, collisionDetectionBoxRadius, sensingRadiusBoxRadius, secondsPerSpawn );
 
 		// Create the simulation visual data.
-        for( int i = 0; i < creatureCount; i++ ) {
+        for( int i = 0; i < maxCreatureCount; i++ ) {
             GameObject d = Instantiate( creaturePrefab );
 
 			// Give each creature a random size for fun.
@@ -95,15 +98,21 @@ public class SimulationManager: MonoBehaviour
     }
 
 	private void findNextDebugCreature() {
+		if( debugItemIndex < 0 ) { return; }
+		if( sim.creatureCount == 0 ) { 
+			debugItemIndex = -1;
+			return; 
+		}
+
 		int index = debugItemIndex + 1;
 		while( index != debugItemIndex ) {
+			if( index >= sim.creatureCount ) {
+				index = 0;
+			}
 			if( sim.Creatures[index].isAlive ) {
 				break;
 			}
 			++index;
-			if( index >= creatureCount ) {
-				index = 0;
-			}
 		}
 		debugItemIndex = index;
 	}
@@ -116,6 +125,19 @@ public class SimulationManager: MonoBehaviour
 		}
 	}
 
+	private void sendDebugText() {
+		String data = "";
+
+		data += $"{sim.creatureCount:F0} Creatures\n";
+		data += $"Debug Box On: {debugItemIndex:F0}\n";
+
+
+
+
+
+		debugOutputDisplay.extraOutput = data;
+	}
+
     void Update()
     {
 		float dt = Time.deltaTime;
@@ -125,13 +147,20 @@ public class SimulationManager: MonoBehaviour
 
         sim.Update( simDt );
 
-		if( !sim.Creatures[debugItemIndex].isAlive ) {
+		if( debugItemIndex >= 0 && debugItemIndex < sim.creatureCount && !sim.Creatures[debugItemIndex].isAlive ) {
 			findNextDebugCreature();
 		}
 
+		sendDebugText();
+
         // Now read sim.Creatures and "draw" them. 
-		for (int i = 0; i < creatureCount; i++)
+		for (int i = 0; i < maxCreatureCount; i++)
         {
+			if( i >= sim.creatureCount ) {
+				visualCreatures[i].SetActive( false );
+				continue;
+			}
+
             Transform t = visualCreatures[i].transform;
 			t.position = sim.Creatures[i].Position;
 
@@ -140,11 +169,11 @@ public class SimulationManager: MonoBehaviour
 			float angle = Mathf.Atan2( v.y, v.x ) * Mathf.Rad2Deg;
 			t.rotation = Quaternion.Euler(0f, 0f, angle);
 
-			visualCreatures[i].SetActive (sim.Creatures[i].isAlive);
+			visualCreatures[i].SetActive( sim.Creatures[i].isAlive );
 
 			var body = visualCreatures[i].transform.Find("Body").gameObject;
 			// Scale the age so the creatures don't go full black.
-			body.GetComponent<Shapes.Disc>().Color = UnityEngine.Color.Lerp( creatureBodyColor, UnityEngine.Color.black, ( sim.Creatures[i].age * 0.7f ) / maxAge );
+			body.GetComponent<Shapes.Disc>().Color = UnityEngine.Color.Lerp( sim.Creatures[i].isChild ? childBodyColor: creatureBodyColor, UnityEngine.Color.black, ( sim.Creatures[i].age * 0.7f ) / maxAge );
 		}
 
 		// Now read sim.Food and "draw" them. 

@@ -91,7 +91,8 @@ public class Creature
 	public float hunger = 0f;
 
 	public List<int> neighbors = new List<int>( 64 );
-	public List<int> nearbyFood = new List<int>( 16 );
+	public List<int> nearbyFood = new List<int>( 20 );
+	public List<int> eatableFood = new List<int>( 5 );
 
 	public Vector2 nearestFood;
 	public bool isFoodNearby = false;

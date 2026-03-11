@@ -12,9 +12,9 @@ public class SimulationManager: MonoBehaviour
 	[Header("World Settings")]
 	public float worldSize = 30f;
 	public float cameraSize = 5f;
-	public int creatureCount = 4000;
-	public int maxCreatureCount = 5000;
+	public int startCreatureCount = 4000;
 	public int foodCount = 1000;
+	public float secondsPerFoodSpawn = 5f;
 
 	[Header("Creature Settings")]
 	public float creatureSize = 1.5f;
@@ -76,21 +76,22 @@ public class SimulationManager: MonoBehaviour
 
 		foodSize = creatureSize * 0.75f;
 
-        sim = new Simulation( worldWidth, worldHeight, cellSize, creatureCount, maxCreatureCount, foodCount, creatureSize, 
-			                  maxAge, maxHunger, minSpeed, maxSpeed, collisionDetectionBoxRadius, sensingRadiusBoxRadius, secondsPerSpawn );
+        sim = new Simulation( worldWidth, worldHeight, cellSize, startCreatureCount, foodCount, creatureSize, 
+			                  maxAge, maxHunger, minSpeed, maxSpeed, collisionDetectionBoxRadius, sensingRadiusBoxRadius, secondsPerSpawn,
+							  secondsPerFoodSpawn );
 
 		// Create the simulation visual data.
-        for( int i = 0; i < maxCreatureCount; i++ ) {
+        for( int i = 0; i < sim.maxCreatureCount; i++ ) {
             GameObject d = Instantiate( creaturePrefab );
 
 			// Give each creature a random size for fun.
-			float scale = UnityEngine.Random.Range( 0.6f, 1.4f );
+			float scale = UnityEngine.Random.Range( 0.75f, 1.2f );
 			float inverseScale = 2f - scale;
             d.transform.localScale = Vector3.one * ( creatureSize * scale );
             visualCreatures.Add(d);
         }
 
-        for( int i = 0; i < foodCount; i++ ) {
+        for( int i = 0; i < sim.maxFoodCount; i++ ) {
             Disc d = Instantiate( foodTemplate );
             d.transform.localScale = Vector3.one * foodSize;
             visualFoods.Add(d);
@@ -128,10 +129,15 @@ public class SimulationManager: MonoBehaviour
 	private void sendDebugText() {
 		String data = "";
 
-		data += $"{sim.creatureCount:F0} Creatures\n";
+		data += $"Creature Count: {sim.creatureCount:F0}\n";
+		data += $"Food Count: {sim.foodCount:F0}\n";
 		data += $"Debug Box On: {debugItemIndex:F0}\n";
 
 
+		data += "\n";
+		data += $"Debug Next: Tab\n";
+		data += $"Pan: Right-Button Drag\n";
+		data += $"Zoom: Scroll Wheel\n";
 
 
 
@@ -154,7 +160,7 @@ public class SimulationManager: MonoBehaviour
 		sendDebugText();
 
         // Now read sim.Creatures and "draw" them. 
-		for (int i = 0; i < maxCreatureCount; i++)
+		for (int i = 0; i < sim.maxCreatureCount; i++)
         {
 			if( i >= sim.creatureCount ) {
 				visualCreatures[i].SetActive( false );
@@ -178,9 +184,10 @@ public class SimulationManager: MonoBehaviour
 
 		// Now read sim.Food and "draw" them. 
 		// They don't move linearly, but updating them like this should deal properly with food disappearing and appearing someplace new.
-		for (int i = 0; i < foodCount; i++)
+		for (int i = 0; i < sim.maxFoodCount; i++)
         {
-            Transform t = visualFoods[i].transform;
+			visualFoods[i].enabled = i < sim.foodCount;
+			Transform t = visualFoods[i].transform;
 			t.position = new Vector3( sim.Foods[i].Position.x, sim.Foods[i].Position.y, 1f );
 		}
 
@@ -222,7 +229,7 @@ public class SimulationManager: MonoBehaviour
 		nearestFoodLine.End = new Vector3( sim.Creatures[debugItemIndex].nearestFood.x, sim.Creatures[debugItemIndex].nearestFood.y, -4.5f );
 		nearestFoodLine.enabled = sim.Creatures[debugItemIndex].isFoodNearby;
 
-		for (int i = 0; i < foodCount; i++) {
+		for (int i = 0; i < sim.maxFoodCount; i++) {
             Transform t = visualFoods[i].transform;
 			t.localScale = Vector3.one * foodSize;
 		}

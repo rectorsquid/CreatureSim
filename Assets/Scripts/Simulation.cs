@@ -1,12 +1,11 @@
-﻿using Shapes;
+﻿
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Unity.VisualScripting;
 using UnityEngine;
-using UnityEngine.AdaptivePerformance.Provider;
+
 
 public class Food
 {
@@ -30,8 +29,6 @@ public class Simulation
     private readonly float halfHeight;
     private readonly float cellSize;
     private readonly float creatureRadius;
-	private readonly int maxCreatureCount;
-	private readonly int foodCount;
 	private readonly int collisionRadius;
 	private readonly int sensesRadius;
 	private readonly float maxAge;
@@ -39,17 +36,23 @@ public class Simulation
 	private readonly float minSpeed;
 	private readonly float maxSpeed;
 	private readonly float secondsPerSpawn;
+	private readonly float secondsPerFoodSpawn;
 
-    public readonly List<int>[,] creatureGrid;
-    public readonly List<int>[,] foodGrid;
     private readonly Creature[] creatures;
     private readonly Food[] foods;
 
+    public readonly List<int>[,] creatureGrid;
+    public readonly List<int>[,] foodGrid;
 	public int creatureCount;
+	public int maxCreatureCount;
+	public int foodCount;
+	public int maxFoodCount;
+
 	private Vector2 dummyVector;
 
-    public Simulation( float width, float height, float cellSize, int creatureCount, int maxCreatureCount, int foodCount, float creatureRadius, 
-		               float maxAge, float maxHunger, float minSpeed, float maxSpeed, int collisionRadius, int sensesRadius, float secondsPerSpawn )
+    public Simulation( float width, float height, float cellSize, int creatureCount, int foodCount, float creatureRadius, 
+		               float maxAge, float maxHunger, float minSpeed, float maxSpeed, int collisionRadius, int sensesRadius, 
+					   float secondsPerSpawn, float secondsPerFoodSpawn )
     {
         this.width = width;
         this.height = height;
@@ -57,9 +60,10 @@ public class Simulation
         this.halfHeight = height / 2f;
         this.cellSize = cellSize;
 		this.creatureCount = creatureCount;
-		this.maxCreatureCount = maxCreatureCount;
+		maxCreatureCount = ( creatureCount * 3 ) / 2;
 		this.creatureRadius = creatureRadius;
 		this.foodCount = foodCount;
+		maxFoodCount = ( foodCount * 3 ) / 2;
 		this.maxAge = maxAge;
 		this.maxHunger = maxHunger;
 		this.minSpeed = minSpeed;
@@ -67,6 +71,7 @@ public class Simulation
 		this.collisionRadius = collisionRadius;
 		this.sensesRadius = sensesRadius;
 		this.secondsPerSpawn = secondsPerSpawn;
+		this.secondsPerFoodSpawn = secondsPerFoodSpawn;
 		
         int gridX = Mathf.CeilToInt(width / cellSize);
         int gridY = Mathf.CeilToInt(height / cellSize);
@@ -96,11 +101,14 @@ public class Simulation
 			}
         }
 
-        foods = new Food[foodCount];
-		for ( int i = 0; i < foodCount; i++ )
+        foods = new Food[maxFoodCount];
+		for ( int i = 0; i < maxFoodCount; i++ )
         {
             foods[i] = new Food();
-			initializeFood( i );
+			if( i < foodCount ) {
+				initializeFood( i );
+				AddFoodToGrid( i );
+			}
         }
 	}
 
@@ -146,26 +154,60 @@ public class Simulation
 			if( !creatures[i].isAlive ) { continue; }
 			processCreatureLifecycle( i, dt );
 		}
-    }
 
-	private void killCreature( int i ) {
-		// Remove the current creature from the grid.
-		int gx = creatures[i].gridX;
-        int gy = creatures[i].gridY;
-		creatureGrid[gx, gy].Remove(i);
-
-		// Swap with the last alive creature in the array and shrink the alive creature count.
-		var currentCreature = creatures[i];
-		currentCreature.isAlive = false;
-		if( creatureCount > 1 ) {
-			var lastCreature = creatures[creatureCount-1];
-			creatures[i] = lastCreature;
-			creatures[creatureCount-1] = currentCreature;
+		if( RandomEvent( dt, secondsPerFoodSpawn ) ) {
+			spawnNewFood();
 		}
 
+    }
+
+	private void killCreature( int creatureIndex ) {
+		int lastCreatureIndex = creatureCount-1;
+		// Remove the current creature from the grid.
+		removeCreatureFromGrid( creatureIndex );
+		// remove the last creature fonr the grid.
+		removeCreatureFromGrid( lastCreatureIndex );
+
+		// Swap with the last alive creature in the array and shrink the alive creature count.
+		var currentCreature = creatures[creatureIndex];
+		currentCreature.isAlive = false;
+		if( creatureCount > 1 ) {
+			var lastCreature = creatures[lastCreatureIndex];
+			creatures[creatureIndex] = lastCreature;
+			creatures[lastCreatureIndex] = currentCreature;
+		}
 		--creatureCount;
+		// Add the creature at the current index back inbto the grid.
+		AddCreatureToGrid( creatureIndex );
 	}
 
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	private void removeFoodFromGrid( int foodIndex ) {
+		foodGrid[foods[foodIndex].gridX, foods[foodIndex].gridY].Remove( foodIndex );
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	private void removeCreatureFromGrid( int creatureIndex ) {
+		creatureGrid[creatures[creatureIndex].gridX, creatures[creatureIndex].gridY].Remove( creatureIndex );
+	}
+
+	private void killFood( int foodIndex ) {
+		int lastFoodIndex = foodCount-1;
+		// Remove the killed food from the grid.
+		removeFoodFromGrid( foodIndex );
+		// Remove the food in the last food index from the grid.
+		removeFoodFromGrid( lastFoodIndex );
+		// Swap the food objects and lower the food count to "kill" the food now in the last position.
+		var currentFood = foods[foodIndex];
+		if( foodCount > 1 ) {
+			var lastFood = foods[lastFoodIndex];
+			foods[foodIndex] = lastFood;
+			foods[lastFoodIndex] = currentFood;
+		}
+		--foodCount;
+		// Add the food at the current index back into the grid.
+		AddFoodToGrid( foodIndex );
+	}
 	private void spawnNewCreature( Vector2 position, Creature parent ) {
 		if( creatureCount >= maxCreatureCount ) {
 			return;
@@ -174,6 +216,7 @@ public class Simulation
 
 		initializeCreature( index, parent );
 
+		// Override the defau;t random location.
 		Vector2 dir = UnityEngine.Random.insideUnitCircle.normalized;
 		Vector2 childPosition = position + dir * creatureRadius;
 		childPosition.x = Mathf.Clamp( childPosition.x, 0f, width - 1f );
@@ -181,8 +224,20 @@ public class Simulation
 		creatures[index].Position = position + dir * creatureRadius;
 		creatures[index].isAlive = true;
 		creatures[index].isChild = true;
+
         AddCreatureToGrid( index );
 	}
+
+	private void spawnNewFood() {
+		if( foodCount >= maxFoodCount ) {
+			return;
+		}
+		int index = foodCount++;
+
+		initializeFood( index );
+		AddFoodToGrid( index );
+	}
+
 
 	private void checkFood( int i ) {
         var creature = creatures[i];
@@ -191,10 +246,10 @@ public class Simulation
         int gy = creature.gridY;
 
 		// Look nearby for food to eat.
-		foodGrid.GetNeighbors( gx, gy, collisionRadius, creature.nearbyFood );
+		foodGrid.GetNeighbors( gx, gy, collisionRadius, creature.eatableFood );
 
-		for( int index = 0; index < creature.nearbyFood.Count; ++index ) {
-			var foodIndex = creature.nearbyFood[index];
+		for( int index = 0; index < creature.eatableFood.Count; ++index ) {
+			var foodIndex = creature.eatableFood[index];
 			var food = foods[foodIndex];
 
 			if( eatFood( ref creature, ref food, foodIndex, creatureRadius ) ) {
@@ -284,7 +339,7 @@ public class Simulation
 
 		a.hunger = Mathf.Max( 0f, a.hunger - maxHunger * 0.25f );
 
-		initializeFood( foodIndex );
+		killFood( foodIndex );
 
 		return true;
 	}
@@ -383,9 +438,7 @@ public class Simulation
 			return;
 		}
 
-		if( creatureCount < maxCreatureCount && RandomEvent( dt, secondsPerSpawn ) ) {
-			// Create a child!
-
+		if( RandomEvent( dt, secondsPerSpawn ) ) {
 			spawnNewCreature( c.Position, c );
 		}
 	}
@@ -425,23 +478,6 @@ public class Simulation
         }
     }
 
-	private void UpdateFoodGridMembership( int i )
-    {
-        var f = foods[i];
-
-        int newgx = (int)((f.Position.x+halfWidth) / cellSize);
-        int newgy = (int)((f.Position.y+halfHeight) / cellSize);
-
-        if (newgx != f.gridX || newgy != f.gridY)
-        {
-            foodGrid[f.gridX, f.gridY].Remove(i);
-            foodGrid[newgx, newgy].Add(i);
-
-            f.gridX = newgx;
-            f.gridY = newgy;
-        }
-    }
-
 	private void initializeCreature( int i, Creature fromParent ) {
         Vector3 pos = new Vector3(
 			UnityEngine.Random.Range( -halfWidth + creatureRadius, halfWidth - creatureRadius ),
@@ -459,7 +495,6 @@ public class Simulation
 	private void initializeFood( int i ) {
         Vector3 pos = new Vector3( ThreadSafeRandom.Range( -halfWidth + creatureRadius, halfWidth - creatureRadius ), ThreadSafeRandom.Range( -halfHeight + creatureRadius, halfHeight - creatureRadius ), 0f );
 		foods[i].Position = pos;
-		UpdateFoodGridMembership( i );
 	}
 
     private void AddCreatureToGrid( int i )
@@ -472,15 +507,15 @@ public class Simulation
         creatureGrid[gx, gy].Add(i);
     }
 
-    /*private void AddFoodToGrid( int i )
+    private void AddFoodToGrid( int i )
     {
-        var c = foods[i];
-        int gx = (int)((c.Position.x+halfWidth) / cellSize);
-        int gy = (int)((c.Position.y+halfHeight) / cellSize);
-        c.gridX = gx;
-        c.gridY = gy;
+        var f = foods[i];
+        int gx = (int)((f.Position.x+halfWidth) / cellSize);
+        int gy = (int)((f.Position.y+halfHeight) / cellSize);
+        f.gridX = gx;
+        f.gridY = gy;
         foodGrid[gx, gy].Add( i );
-    }*/
+    }
 
     public Creature[] Creatures => creatures;
     public Food[] Foods => foods;

@@ -165,6 +165,11 @@ public class Simulation
 		int lastCreatureIndex = creatureCount-1;
 		// Remove the current creature from the grid.
 		removeCreatureFromGrid( creatureIndex );
+		if( creatureIndex == lastCreatureIndex ) {
+			--creatureCount;
+			return;
+		}
+
 		// remove the last creature fonr the grid.
 		removeCreatureFromGrid( lastCreatureIndex );
 
@@ -195,6 +200,10 @@ public class Simulation
 		int lastFoodIndex = foodCount-1;
 		// Remove the killed food from the grid.
 		removeFoodFromGrid( foodIndex );
+		if( foodIndex == lastFoodIndex ) {
+			--foodCount;
+			return;
+		}
 		// Remove the food in the last food index from the grid.
 		removeFoodFromGrid( lastFoodIndex );
 		// Swap the food objects and lower the food count to "kill" the food now in the last position.
@@ -208,6 +217,7 @@ public class Simulation
 		// Add the food at the current index back into the grid.
 		AddFoodToGrid( foodIndex );
 	}
+
 	private void spawnNewCreature( Vector2 position, Creature parent ) {
 		if( creatureCount >= maxCreatureCount ) {
 			return;
@@ -216,7 +226,7 @@ public class Simulation
 
 		initializeCreature( index, parent );
 
-		// Override the defau;t random location.
+		// Override the default random location.
 		Vector2 dir = UnityEngine.Random.insideUnitCircle.normalized;
 		Vector2 childPosition = position + dir * creatureRadius;
 		childPosition.x = Mathf.Clamp( childPosition.x, 0f, width - 1f );

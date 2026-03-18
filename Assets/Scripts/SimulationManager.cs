@@ -17,7 +17,7 @@ public class SimulationManager: MonoBehaviour
 	public float secondsPerFoodSpawn = 5f;
 
 	[Header("Creature Settings")]
-	public float creatureSize = 1.5f;
+	public float creatureRadius = 0.05f;
 	public float secondsPerSpawn = 30f;
 	public float maxAge = 120f;
 	public float maxHunger = 60f;
@@ -74,9 +74,9 @@ public class SimulationManager: MonoBehaviour
 		nearestFoodLine = Instantiate( lineTemplate );
 		nearestFoodLine.Color = UnityEngine.Color.yellow;
 
-		foodSize = creatureSize * 0.75f;
+		foodSize = creatureRadius * 0.75f;
 
-        sim = new Simulation( worldWidth, worldHeight, cellSize, startCreatureCount, foodCount, creatureSize, 
+        sim = new Simulation( worldWidth, worldHeight, cellSize, startCreatureCount, foodCount, creatureRadius, 
 			                  maxAge, maxHunger, minSpeed, maxSpeed, collisionDetectionBoxRadius, sensingRadiusBoxRadius, secondsPerSpawn,
 							  secondsPerFoodSpawn );
 
@@ -87,7 +87,7 @@ public class SimulationManager: MonoBehaviour
 			// Give each creature a random size for fun.
 			float scale = UnityEngine.Random.Range( 0.75f, 1.2f );
 			float inverseScale = 2f - scale;
-            d.transform.localScale = Vector3.one * ( creatureSize * scale );
+            d.transform.localScale = Vector3.one * ( creatureRadius * scale );
             visualCreatures.Add(d);
         }
 
@@ -139,10 +139,36 @@ public class SimulationManager: MonoBehaviour
 		data += $"Pan: Right-Button Drag\n";
 		data += $"Zoom: Scroll Wheel\n";
 
-
-
 		debugOutputDisplay.extraOutput = data;
 	}
+
+	private bool IsMouseOverCreature(Vector2 mouse, Vector2 creaturePos, float radius)
+	{
+		return Mathf.Abs(mouse.x - creaturePos.x) <= radius &&
+			   Mathf.Abs(mouse.y - creaturePos.y) <= radius;
+	}
+
+	private void HandleSelection()
+    {
+        if (Mouse.current == null)
+            return;
+
+        if( !Mouse.current.leftButton.wasPressedThisFrame ) {
+			return;
+		}
+
+		Vector3 currentPos = Mouse.current.position.ReadValue();
+
+		Vector3 temp = Camera.main.ScreenToWorldPoint( Mouse.current.position.ReadValue() );
+		Vector2 mouseWorldPosition = (Vector2)temp;
+		for( int index = 0; index < sim.creatureCount; ++index ) {
+			if( IsMouseOverCreature( mouseWorldPosition, sim.Creatures[index].Position, creatureRadius ) ) {
+				debugItemIndex = index;
+				break;
+			}
+		}
+
+    }
 
     void Update()
     {
@@ -150,6 +176,7 @@ public class SimulationManager: MonoBehaviour
         float simDt = useFixedSimulationTime ? 0.0333333f : dt;
 
 		HandleKeys();
+		HandleSelection();
 
         sim.Update( simDt );
 

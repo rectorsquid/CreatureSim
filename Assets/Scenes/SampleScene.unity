@@ -304,7 +304,7 @@ MonoBehaviour:
   startCreatureCount: 10000
   foodCount: 2000
   secondsPerFoodSpawn: 0.02
-  creatureSize: 0.025
+  creatureRadius: 0.015
   secondsPerSpawn: 90
   maxAge: 1200
   maxHunger: 30

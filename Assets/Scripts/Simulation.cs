@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.InputSystem.EnhancedTouch;
 
 
 public class Food
@@ -43,12 +44,50 @@ public class Simulation
 
     public readonly List<int>[,] creatureGrid;
     public readonly List<int>[,] foodGrid;
+	public int initialCreatureCount;
 	public int creatureCount;
 	public int maxCreatureCount;
 	public int foodCount;
+	public int initialFoodCount;
 	public int maxFoodCount;
 
 	private Vector2 dummyVector;
+
+	public void reset() {
+		if( creatureCount > 0 ) {
+			for( int index = 0; index < creatureCount; ++index ) {
+				removeCreatureFromGrid( index );
+			}
+		}
+
+		creatureCount = initialCreatureCount;
+        for ( int i = 0; i < maxCreatureCount; i++ )
+        {
+            creatures[i] = new Creature();
+			if( i < creatureCount ) {
+				// Only initialize the living creatures. The rest are placeholders for children.
+				initializeCreature( i, null );
+				AddCreatureToGrid( i );
+			}
+        }
+
+		if( foodCount > 0 ) {
+			for( int index = 0; index < foodCount; ++index ) {
+				removeFoodFromGrid( index );
+			}
+		}
+
+
+		foodCount = initialFoodCount;
+		for ( int i = 0; i < maxFoodCount; i++ )
+        {
+            foods[i] = new Food();
+			if( i < foodCount ) {
+				initializeFood( i );
+				AddFoodToGrid( i );
+			}
+        }
+	}
 
     public Simulation( float width, float height, float cellSize, int creatureCount, int foodCount, float creatureRadius, 
 		               float maxAge, float maxHunger, float minSpeed, float maxSpeed, int collisionRadius, int sensesRadius, 
@@ -59,10 +98,10 @@ public class Simulation
 		this.halfWidth = width / 2f;
         this.halfHeight = height / 2f;
         this.cellSize = cellSize;
-		this.creatureCount = creatureCount;
+		this.initialCreatureCount = creatureCount;
 		maxCreatureCount = ( creatureCount * 3 ) / 2;
 		this.creatureRadius = creatureRadius;
-		this.foodCount = foodCount;
+		this.initialFoodCount = foodCount;
 		maxFoodCount = ( foodCount * 3 ) / 2;
 		this.maxAge = maxAge;
 		this.maxHunger = maxHunger;
@@ -90,26 +129,10 @@ public class Simulation
 			}
 		}
 
-        creatures = new Creature[maxCreatureCount];
-        for ( int i = 0; i < maxCreatureCount; i++ )
-        {
-            creatures[i] = new Creature();
-			if( i < creatureCount ) {
-				// Only initialize the living creatures. The rest are placeholders for children.
-				initializeCreature( i, null );
-				AddCreatureToGrid( i );
-			}
-        }
-
+		creatures = new Creature[maxCreatureCount];
         foods = new Food[maxFoodCount];
-		for ( int i = 0; i < maxFoodCount; i++ )
-        {
-            foods[i] = new Food();
-			if( i < foodCount ) {
-				initializeFood( i );
-				AddFoodToGrid( i );
-			}
-        }
+		
+		reset();
 	}
 
     public void Update( float dt )
@@ -138,12 +161,14 @@ public class Simulation
 			}
 		}
 
+		float overallTime = Time.time;
+
 		// Only self contained code that does not modify the overall simulation data, such as
 		// the grids or creature and food arrays, can be parallel. This code is running the neural network
 		// but does not modify anything outside of the individual creatures.
 		Parallel.For( 0, creatureCount, i => {
 			if( creatures[i].isAlive ) {
-				checkSteering( i );
+				checkSteering( overallTime, i );
 			}
 		} );
 
@@ -262,13 +287,13 @@ public class Simulation
 			var foodIndex = creature.eatableFood[index];
 			var food = foods[foodIndex];
 
-			if( eatFood( ref creature, ref food, foodIndex, creatureRadius ) ) {
+			if( checkForEating( ref creature, ref food, foodIndex, creatureRadius ) ) {
 				return;
 			}
 		}
 	}
 
-	private void checkSteering( int i ) {
+	private void checkSteering( float simulationTime, int i ) {
         var creature = creatures[i];
 		
 		int gx = creature.gridX;
@@ -297,14 +322,14 @@ public class Simulation
 		if( bestFood >= 0 ) {
 			creature.nearestFood = foods[bestFood].Position;
 			creature.isFoodNearby = true;
-			processCreatureInput( ref creature, true, foods[bestFood].Position );
+			processCreatureInput( i, ref creature, simulationTime, true, foods[bestFood].Position );
 		} else {
 			creature.isFoodNearby = false;
-			processCreatureInput( ref creature, false, dummyVector );
+			processCreatureInput( i, ref creature, simulationTime, false, dummyVector );
 		}
 	}
 
-	private void processCreatureInput( ref Creature creature, bool seesFood, Vector2 foodPosition ) {
+	private void processCreatureInput( int creatureId, ref Creature creature, float simulationTime, bool seesFood, Vector2 foodPosition ) {
 		// Convert food angle to a realtive angle.
 		Vector2 relativePosition = foodPosition - creature.Position;
 		float angleToFood = Mathf.Atan2( relativePosition.y, relativePosition.x );
@@ -316,7 +341,7 @@ public class Simulation
 
 		float distanceToFood = relativePosition.magnitude;
 
-		creature.runNetwork( seesFood, relativeFoodAngle, distanceToFood );
+		creature.runNetwork( seesFood, relativeFoodAngle, distanceToFood, simulationTime, creatureId );
 	}
 
 	private void checkCollisions( int i ) {
@@ -338,7 +363,7 @@ public class Simulation
 		}
 	}
 
-	bool eatFood( ref Creature a, ref Food b, int foodIndex, float radius ) {
+	bool checkForEating( ref Creature a, ref Food b, int foodIndex, float radius ) {
 		Vector2 d = b.Position - a.Position;
 		float distSq = d.sqrMagnitude;
 		float r = radius + radius;
@@ -347,7 +372,7 @@ public class Simulation
 		float dist = Mathf.Sqrt( distSq );
 		if( dist > radius )	{ return false; }
 
-		a.hunger = Mathf.Max( 0f, a.hunger - maxHunger * 0.25f );
+		a.eatFood( maxHunger * 0.95f, maxHunger );
 
 		killFood( foodIndex );
 
@@ -448,7 +473,10 @@ public class Simulation
 			return;
 		}
 
-		if( RandomEvent( dt, secondsPerSpawn ) ) {
+		float satiation = 1f - c.hunger / maxHunger;
+		float effectiveInterval = Mathf.Lerp( secondsPerSpawn, secondsPerSpawn / 2f, satiation );
+
+		if( RandomEvent( dt, effectiveInterval ) ) {
 			spawnNewCreature( c.Position, c );
 		}
 	}
@@ -498,6 +526,7 @@ public class Simulation
 		creatures[i].Velocity = UnityEngine.Random.insideUnitCircle.normalized * UnityEngine.Random.Range( minSpeed, maxSpeed );
 		creatures[i].age = UnityEngine.Random.Range( 0f, maxAge / 2f );
 		creatures[i].hunger = UnityEngine.Random.Range( 0f, maxHunger / 5f );
+		creatures[i].maxHunger = maxHunger;
 		
 		creatures[i].initializeBrain( fromParent );
 	}

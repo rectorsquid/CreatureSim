@@ -1,11 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Windows;
 
 public static class BrainConfig
 {
-	public const int N_INPUTS = 4;
+	public const int N_INPUTS = 7;
 	public const int N_HIDDEN = 8;
 	public const int N_OUTPUTS = 2;
 }
@@ -89,6 +90,7 @@ public class Creature
 
 	public float age = 0f;
 	public float hunger = 0f;
+	public float maxHunger = 1f;
 
 	public List<int> neighbors = new List<int>( 64 );
 	public List<int> nearbyFood = new List<int>( 20 );
@@ -96,6 +98,9 @@ public class Creature
 
 	public Vector2 nearestFood;
 	public bool isFoodNearby = false;
+
+	public float lastTurnValue = 0.0f;
+	public float lastSpeedValue = 0.0f;
 
 	public void initializeBrain( Creature fromParent )
     {
@@ -119,35 +124,35 @@ public class Creature
 		}
     }
 	
-private void mutateBrain( Creature parent )
-{
-    const float mutationStrength = 0.1f;   // adjust between 0.05 and 0.2
-    const float clampRange = 2f;
+	private void mutateBrain( Creature parent )
+	{
+		const float mutationStrength = 0.1f;   // adjust between 0.05 and 0.2
+		const float clampRange = 2f;
 
-    for (int i = 0; i < brain.w1.Length; i++)
-    {
-        float v = parent.brain.w1[i] + UnityEngine.Random.Range(-mutationStrength, mutationStrength);
-        brain.w1[i] = Mathf.Clamp(v, -clampRange, clampRange);
-    }
+		for (int i = 0; i < brain.w1.Length; i++)
+		{
+			float v = parent.brain.w1[i] + UnityEngine.Random.Range(-mutationStrength, mutationStrength);
+			brain.w1[i] = Mathf.Clamp(v, -clampRange, clampRange);
+		}
 
-    for (int i = 0; i < brain.b1.Length; i++)
-    {
-        float v = parent.brain.b1[i] + UnityEngine.Random.Range(-mutationStrength, mutationStrength);
-        brain.b1[i] = Mathf.Clamp(v, -clampRange, clampRange);
-    }
+		for (int i = 0; i < brain.b1.Length; i++)
+		{
+			float v = parent.brain.b1[i] + UnityEngine.Random.Range(-mutationStrength, mutationStrength);
+			brain.b1[i] = Mathf.Clamp(v, -clampRange, clampRange);
+		}
 
-    for (int i = 0; i < brain.w2.Length; i++)
-    {
-        float v = parent.brain.w2[i] + UnityEngine.Random.Range(-mutationStrength, mutationStrength);
-        brain.w2[i] = Mathf.Clamp(v, -clampRange, clampRange);
-    }
+		for (int i = 0; i < brain.w2.Length; i++)
+		{
+			float v = parent.brain.w2[i] + UnityEngine.Random.Range(-mutationStrength, mutationStrength);
+			brain.w2[i] = Mathf.Clamp(v, -clampRange, clampRange);
+		}
 
-    for (int i = 0; i < brain.b2.Length; i++)
-    {
-        float v = parent.brain.b2[i] + UnityEngine.Random.Range( -mutationStrength, mutationStrength );
-        brain.b2[i] = Mathf.Clamp(v, -clampRange, clampRange);
-    }
-}
+		for (int i = 0; i < brain.b2.Length; i++)
+		{
+			float v = parent.brain.b2[i] + UnityEngine.Random.Range( -mutationStrength, mutationStrength );
+			brain.b2[i] = Mathf.Clamp(v, -clampRange, clampRange);
+		}
+	}
 
 	private void RandomizeBrain()
     {
@@ -164,6 +169,10 @@ private void mutateBrain( Creature parent )
             brain.b2[i] = UnityEngine.Random.Range(-1f, 1f);
     }
 
+	public void eatFood( float amount, float maxHunger ) {
+		hunger = Mathf.Max( 0f, hunger - amount );
+	}
+
     public Vector2 Position
     {
         get => new Vector2(x, y);
@@ -176,8 +185,8 @@ private void mutateBrain( Creature parent )
         set { vx = value.x; vy = value.y; }
     }
 
-	public void runNetwork( bool isFoodNearby, float relativeFoodAngle, float foodDistance ) {
-		const float maxDistance = 0.5f;
+	public void runNetwork( bool isFoodNearby, float relativeFoodAngle, float foodDistance, float simulationTime, int creatureId ) {
+		const float maxDistance = 20f;
 		if (relativeFoodAngle > Mathf.PI) relativeFoodAngle -= 2f * Mathf.PI;
 		if (relativeFoodAngle < -Mathf.PI) relativeFoodAngle += 2f * Mathf.PI;
 
@@ -185,8 +194,12 @@ private void mutateBrain( Creature parent )
 		
 		input[0] = isFoodNearby ? ( relativeFoodAngle / Mathf.PI ) : 0.0f;
 		input[1] = isFoodNearby ? 1.0f : 0.0f;
-		input[2] = 1.0f; // A non-zero bias to keep the network from getting all zero values.
-		input[3] = distanceValue;
+		input[2] = hunger / maxHunger;
+		input[3] = isFoodNearby ? distanceValue : 1f;
+		input[4] = Mathf.Sin( simulationTime * 3.0f + creatureId );
+		input[5] = Mathf.Sin( simulationTime * 0.3f + creatureId + 2.4f );
+		input[6] = lastTurnValue / Mathf.PI;
+		input[6] = lastSpeedValue;
 
 		//inputs[1] = normalizedDistanceToFood;
 		//inputs[2] = energyLevel;
@@ -195,6 +208,9 @@ private void mutateBrain( Creature parent )
 		//inputs[5] = previousOutputSpeed;
 
 		brain.Evaluate( input );
+
+		lastTurnValue = brain.output[0];
+		lastSpeedValue = brain.output[1];
 
 		Velocity = computeNewVelocity( brain.output[0], brain.output[1] );
 	}

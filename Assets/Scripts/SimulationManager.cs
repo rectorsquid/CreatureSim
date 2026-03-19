@@ -48,8 +48,11 @@ public class SimulationManager: MonoBehaviour
 	private List<GameObject> visualCreatures = new List<GameObject>();
 	private List<Disc> visualFoods = new List<Disc>();	
 	private float foodSize = 1f;
+	private int simulationSpeedMultiplier = 1;
 
 	private int debugItemIndex = 0;
+
+	private int attempt = 1;
 	
 	Shapes.Rectangle cellBox;
 	Shapes.Rectangle collisionBox;
@@ -118,6 +121,11 @@ public class SimulationManager: MonoBehaviour
 		debugItemIndex = index;
 	}
 
+	Key[] numberKeys = {
+		Key.Digit0, Key.Digit1, Key.Digit2, Key.Digit3, Key.Digit4,
+		Key.Digit5, Key.Digit6, Key.Digit7, Key.Digit8, Key.Digit9
+	};
+
 	void HandleKeys()
     {
 		if (Keyboard.current.tabKey.wasPressedThisFrame)
@@ -127,8 +135,9 @@ public class SimulationManager: MonoBehaviour
 	}
 
 	private void sendDebugText() {
-		String data = "";
+		String data = $"Attempt: {attempt:F0}\n\n";
 
+		data += $"Speed: x{simulationSpeedMultiplier:F0}\n";
 		data += $"Creature Count: {sim.creatureCount:F0}\n";
 		data += $"Food Count: {sim.foodCount:F0}\n";
 		data += $"Debug Box On: {debugItemIndex:F0}\n";
@@ -167,8 +176,29 @@ public class SimulationManager: MonoBehaviour
 				break;
 			}
 		}
-
     }
+
+	void OnEnable()
+	{
+		Keyboard.current.onTextInput += OnTextInput;
+	}
+
+	void OnDisable()
+	{
+		Keyboard.current.onTextInput -= OnTextInput;
+	}
+
+	private void OnTextInput( char c )
+	{
+		if( c >= '0' && c <= '9' ) {
+			int value = c - '0';
+			if( value == 0 ) {
+				simulationSpeedMultiplier = 0;
+			} else {
+				simulationSpeedMultiplier = (int)Mathf.Pow( 2, value - 1 );
+			}
+		}
+	}
 
     void Update()
     {
@@ -178,7 +208,14 @@ public class SimulationManager: MonoBehaviour
 		HandleKeys();
 		HandleSelection();
 
-        sim.Update( simDt );
+		for( int step = 0; step < simulationSpeedMultiplier; ++step ) {
+			sim.Update( simDt );
+		}
+
+		if( sim.creatureCount == 0 ) {
+			++attempt;
+			sim.reset();
+		}
 
 		if( debugItemIndex >= 0 && debugItemIndex < sim.creatureCount && !sim.Creatures[debugItemIndex].isAlive ) {
 			findNextDebugCreature();

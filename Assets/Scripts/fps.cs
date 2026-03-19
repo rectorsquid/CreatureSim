@@ -9,13 +9,6 @@ public class FPSDisplay : MonoBehaviour
 
 	public string extraOutput = "";
 
-	private string elapsedTimeString() {
-		float elapsed = Time.time;
-		TimeSpan t = TimeSpan.FromSeconds(elapsed);
-		return $"Simulation Time {t:hh\\:mm\\:ss}";
-	}
-
-
     void Update()
     {
         // Update once per 0.2 seconds to avoid flicker
@@ -24,8 +17,6 @@ public class FPSDisplay : MonoBehaviour
         {
             float fps = 1f / Time.unscaledDeltaTime;
 			string outputText = $"{fps:F0} FPS";
-			outputText += "\n";
-			outputText += elapsedTimeString();
 			outputText += "\n";
 			outputText += extraOutput;
 

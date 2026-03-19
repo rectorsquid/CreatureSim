@@ -303,15 +303,15 @@ MonoBehaviour:
   cameraSize: 5
   startCreatureCount: 10000
   foodCount: 1100
-  secondsPerFoodSpawn: 0.018
+  secondsPerFoodSpawn: 0.019
   creatureRadius: 0.015
-  secondsPerSpawn: 90
-  maxAge: 1000
+  secondsPerSpawn: 100
+  maxAge: 900
   maxHunger: 35
   minSpeed: 0.015
-  maxSpeed: 0.55
-  creatureBodyColor: {r: 0.69262, g: 0.37735844, b: 1, a: 1}
-  childBodyColor: {r: 1, g: 0.9711288, b: 0, a: 1}
+  maxSpeed: 0.5
+  creatureBodyColor: {r: 0.7024479, g: 0.5320754, b: 1, a: 1}
+  childBodyColor: {r: 1, g: 0.63773584, b: 0.90623754, a: 1}
   cellSize: 0.11
   collisionDetectionBoxRadius: 1
   sensingRadiusBoxRadius: 6

@@ -53,6 +53,8 @@ public class SimulationManager: MonoBehaviour
 	private int debugItemIndex = 0;
 
 	private int attempt = 1;
+
+	private float totalSimulationTime = 0f;
 	
 	Shapes.Rectangle cellBox;
 	Shapes.Rectangle collisionBox;
@@ -87,10 +89,10 @@ public class SimulationManager: MonoBehaviour
         for( int i = 0; i < sim.maxCreatureCount; i++ ) {
             GameObject d = Instantiate( creaturePrefab );
 
-			// Give each creature a random size for fun.
+			// Give each creature a random size for fun. Make it bigger than their internal radius so we can see them better.
 			float scale = UnityEngine.Random.Range( 0.75f, 1.2f );
 			float inverseScale = 2f - scale;
-            d.transform.localScale = Vector3.one * ( creatureRadius * scale );
+            d.transform.localScale = Vector3.one * ( creatureRadius * scale * 1.3f );
             visualCreatures.Add(d);
         }
 
@@ -134,8 +136,17 @@ public class SimulationManager: MonoBehaviour
 		}
 	}
 
+	private string elapsedTimeString() {
+		float elapsed = totalSimulationTime;
+		TimeSpan t = TimeSpan.FromSeconds( elapsed );
+		return $"Simulation Time {t:hh\\:mm\\:ss}";
+	}
+
 	private void sendDebugText() {
-		String data = $"Attempt: {attempt:F0}\n\n";
+		String data = "";
+
+		data += elapsedTimeString() + "\n";
+		data += $"Attempt: {attempt:F0}\n\n";
 
 		data += $"Speed: x{simulationSpeedMultiplier:F0}\n";
 		data += $"Creature Count: {sim.creatureCount:F0}\n";
@@ -211,6 +222,8 @@ public class SimulationManager: MonoBehaviour
 		for( int step = 0; step < simulationSpeedMultiplier; ++step ) {
 			sim.Update( simDt );
 		}
+
+		totalSimulationTime += dt * simulationSpeedMultiplier;
 
 		if( sim.creatureCount == 0 ) {
 			++attempt;

@@ -303,11 +303,11 @@ MonoBehaviour:
   cameraSize: 5
   startCreatureCount: 10000
   foodCount: 1100
-  secondsPerFoodSpawn: 0.019
+  secondsPerFoodSpawn: 0.07
   creatureRadius: 0.015
-  secondsPerSpawn: 100
+  secondsPerSpawn: 95
   maxAge: 900
-  maxHunger: 35
+  maxHunger: 40
   minSpeed: 0.015
   maxSpeed: 0.5
   creatureBodyColor: {r: 0.7024479, g: 0.5320754, b: 1, a: 1}

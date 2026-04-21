@@ -134,6 +134,10 @@ public class SimulationManager: MonoBehaviour
 		{
 			findNextDebugCreature();
 		}
+		if( Keyboard.current.leftCtrlKey.isPressed && Keyboard.current.qKey.wasPressedThisFrame )
+		{
+			Application.Quit();
+		}
 	}
 
 	private string elapsedTimeString() {
@@ -223,7 +227,7 @@ public class SimulationManager: MonoBehaviour
 			sim.Update( simDt );
 		}
 
-		totalSimulationTime += dt * simulationSpeedMultiplier;
+		totalSimulationTime += simDt * simulationSpeedMultiplier;
 
 		if( sim.creatureCount == 0 ) {
 			++attempt;
